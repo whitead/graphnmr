@@ -12,7 +12,7 @@ import math
 import tqdm, os
 import random
 import traceback
-from model import *
+from graphnmr import *
 
 def process_corr(path, debug):
     with open(path, 'r') as f:
@@ -99,7 +99,7 @@ def align(seq1, seq2):
 # NN is not NEIGHBOR_NUMBer
 # reason for difference is we don't want 1,3 or 1,4, etc neighbors on the list
 def process_pdb(path, corr_path, chain_id, max_atoms,
-                gsd_file, embedding_dicts, NN, nlist_model,  
+                gsd_file, embedding_dicts, NN, nlist_model,
                 keep_residues=[-1, 1],
                 debug=False, units = unit.nanometer, frame_number=3):
     # load pdb
@@ -123,7 +123,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
     frame_choices = random.choices(range(0, pdb.getNumFrames()), k=frame_number)
     for fi in frame_choices:
         successes = 0
-        # clean up individual frame 
+        # clean up individual frame
         frame = pdb.getPositions(frame=fi)
         # have to fix at each frame since inserted atoms may change
         # fix missing residues/atoms
@@ -131,7 +131,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
         # overwrite positions with frame positions
         fixer.positions = frame
         # we want to add missing atoms,
-        # but not replace missing residue. We'd 
+        # but not replace missing residue. We'd
         # rather just ignore those
         fixer.findMissingResidues()
         # remove the missing residues
@@ -170,7 +170,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
         frame_nlist = nlist_model(np_pos)
 
         for ri in range(len(residues)):
-            # we build up fragment by getting residues around us, both in chain 
+            # we build up fragment by getting residues around us, both in chain
             # and those within a certain distance of us
             rmin = max(0,ri + keep_residues[0])
             rmax = min(len(residues), ri + keep_residues[1] + 1)
@@ -205,7 +205,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
             # going from pdb atom index to index in these data structures
             rmap = dict()
             index = 0
-            # check our two conditions that could have made this false: there are residues and 
+            # check our two conditions that could have made this false: there are residues and
             # we didn't have off-chain spatial neighboring residues
             if not success:
                 continue
@@ -297,7 +297,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                             j = rmap[int(frame_nlist[a.index, ni, 1])]
                         except KeyError:
                             # either we couldn't find a neighbor on the root residue (which is bad)
-                            # or just one of the neighbors is not on a considered residue. 
+                            # or just one of the neighbors is not on a considered residue.
                             if rj == ri:
                                 success = False
                                 if debug:
@@ -382,9 +382,9 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
 
         for index, entry in enumerate(pbar):
             try:
-                result, p, n, pc = process_pdb(PROTEIN_DIR + entry['pdb_file'], PROTEIN_DIR + entry['corr'], entry['chain'], 
+                result, p, n, pc = process_pdb(PROTEIN_DIR + entry['pdb_file'], PROTEIN_DIR + entry['corr'], entry['chain'],
                                         gsd_file=gsd_file if index % WRITE_FRAG_PERIOD == 0 else None,
-                                        max_atoms=MAX_ATOM_NUMBER, embedding_dicts=embedding_dicts, NN=NN, 
+                                        max_atoms=MAX_ATOM_NUMBER, embedding_dicts=embedding_dicts, NN=NN,
                                         nlist_model=nm)
                 pbar.set_description('Processed PDB {} ({}). Successes {} ({:.2}). Total Records: {}, Peaks: {}. Wrote frags: {}'.format(
                                    entry['pdb_id'], entry['corr'], n, p, records, peaks, index % WRITE_FRAG_PERIOD == 0))

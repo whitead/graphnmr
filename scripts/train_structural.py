@@ -1,11 +1,11 @@
 import tensorflow as tf
 import pickle
 import numpy as np
-from model import *
+from graphnmr import *
 import matplotlib.pyplot as plt
 import os
 
-# THINGS TO MAKE BIG AGAIN: 
+# THINGS TO MAKE BIG AGAIN:
 # 1. Shulffle slize
 # 2. Skip number
 # 3. Batch size

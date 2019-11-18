@@ -1,5 +1,5 @@
 import tensorflow as tf
-from model import *
+from graphnmr import *
 import numpy as np
 import pickle
 from rdkit import Chem
@@ -34,7 +34,7 @@ def prepare_labels(entry):
     for i in range(N):
         for p in entry['peaks']:
             if 'a{}'.format(i+1) in p['atoms']['@atomRefs'].split():
-                if type(p['peakList']['peak']) == list:       
+                if type(p['peakList']['peak']) == list:
                     #print('duplicate peaks', *[x['@center'] for x in p['peakList']['peak']])
                     #print(p)
                     L[i] = p['peakList']['peak'][0]['@center']
@@ -46,7 +46,7 @@ def prepare_adj(entry):
     N = len(entry['atoms'])
     A = np.zeros((N,N), dtype=np.int32)
     for b in entry['bonds']:
-        i,j = [int(s[1:]) - 1 for s in b['@atomRefs'].split()]        
+        i,j = [int(s[1:]) - 1 for s in b['@atomRefs'].split()]
         A[i, j] = int(b['@order'])
         A[j, i] = A[i,j]
     #add self loops
@@ -54,7 +54,7 @@ def prepare_adj(entry):
         #A[i,i] = bond_dictionary['self']
     return A
 
-def prepare_expconditions(entry, exp_dictionary):    
+def prepare_expconditions(entry, exp_dictionary):
     normalized_solvent = entry['solvent'].lower()
     if normalized_solvent not in exp_dictionary:
         exp_dictionary[normalized_solvent] = len(exp_dictionary)
@@ -102,7 +102,7 @@ def adj_to_nlist(atoms, A, nlist_model, embeddings):
             bonds[0, b.GetEndAtomIdx(), b.GetBeginAtomIdx()] = 1
         for bi in range(1, BOND_MAX):
             bonds[bi, :, :] = (bonds[0, :, :] @ bonds[bi - 1, :, :]) > 0
-        
+
         # a 0 -> non-bonded
         for index in range(N):
             for ni in range(len(pos_nlist[index])):
@@ -162,7 +162,7 @@ with tf.python_io.TFRecordWriter('train-structure-metabolite-data-{}-{}.tfrecord
             class_label = 'MB'
             if class_label not in embeddings['class']:
                 embeddings['class'][class_label] = len(embeddings['class'])
-            atom_data = padto(atom_data, (MAX_ATOM_NUMBER,))    
+            atom_data = padto(atom_data, (MAX_ATOM_NUMBER,))
             peak_data = padto(prepare_labels(rd), (MAX_ATOM_NUMBER, ))
             name_data = padto(names, (MAX_ATOM_NUMBER,))
             nucleus = rd['nucleus'][-1]

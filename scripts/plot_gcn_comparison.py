@@ -1,6 +1,6 @@
 import tensorflow as tf
 import pickle
-from model import *
+from graphnmr import *
 import matplotlib.pyplot as plt
 import numpy as np
 

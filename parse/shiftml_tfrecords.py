@@ -1,5 +1,5 @@
 import tensorflow as tf
-from model import *
+from graphnmr import *
 import numpy as np
 import pickle
 from rdkit import Chem
@@ -25,7 +25,7 @@ vdw = {
 def guess_bonds(pos_nlist, atom_names):
     bonds = np.zeros( (BOND_MAX, MAX_ATOM_NUMBER,MAX_ATOM_NUMBER), dtype=np.int64)
     for i in range(len(atom_names)):
-        for ni 
+        for ni
 
 def adj_to_nlist(atoms, A, nlist_model, embeddings):
     bonds = {1: Chem.rdchem.BondType.SINGLE,
@@ -63,7 +63,7 @@ def adj_to_nlist(atoms, A, nlist_model, embeddings):
             bonds[0, b.GetEndAtomIdx(), b.GetBeginAtomIdx()] = 1
         for bi in range(1, BOND_MAX):
             bonds[bi, :, :] = (bonds[0, :, :] @ bonds[bi - 1, :, :]) > 0
-        
+
         # a 0 -> non-bonded
         for index in range(N):
             for ni in range(NEIGHBOR_NUMBER):
@@ -141,7 +141,7 @@ with tf.python_io.TFRecordWriter('train-structure-metabolite-data-{}-{}.tfrecord
             class_label = 'MB'
             if class_label not in embeddings['class']:
                 embeddings['class'][class_label] = len(embeddings['class'])
-            atom_data = padto(atom_data, (MAX_ATOM_NUMBER,))    
+            atom_data = padto(atom_data, (MAX_ATOM_NUMBER,))
             peak_data = padto(prepare_labels(rd), (MAX_ATOM_NUMBER, ))
             name_data = padto(names, (MAX_ATOM_NUMBER,))
             nucleus = rd['nucleus'][-1]
