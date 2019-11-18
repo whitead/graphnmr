@@ -47,3 +47,4 @@ Images
 
 #pycache files
 __pycache__/
+*.egg-info
