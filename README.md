@@ -24,4 +24,10 @@ The raw data is not in this repo due to the huge number of files.
 ## Preequisites
 
 numpy, matplotlib, tensorflow pre 2.0, graphviz, networkx, tqdm, gsd (conda-forge). If you want to do the data processing stuff,
-use the yml file included.
+use the yml file included. Note
+
+
+## Install
+
+To run the scripts, you'll need to install the model code. Use `pip install -e .` It will not attempt to install tensorflow, since
+this is a system dependent task.
