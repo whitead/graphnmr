@@ -3,19 +3,24 @@ import pickle
 import numpy as np
 from graphnmr import *
 import matplotlib.pyplot as plt
-import os
+import os, sys
 
-DO_TRAIN = True
+DO_TRAIN = True # Turn off to plot
 
-SCRATCH = os.curdir + os.path.sep
-#SCRATCH = '/tmp/'
-EMBEDDINGS_DIR = SCRATCH
-DATA_DIR = 'records/'
+if len(sys.argv) == 3:
+    SCRATCH = sys.argv[1]
+    DATA_DIR = sys.argv[2]
+else:    
+    SCRATCH = os.curdir + os.path.sep
+    DATA_DIR = 'records/'
 
-embedding_dicts = load_embeddings('embeddings.pb')
+embedding_dicts = load_embeddings(os.path.join(DATA_DIR,'embeddings.pb'))
 
 # read data from this file
-filenames = [DATA_DIR + f'train-structure-protein-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord']
+filenames = [os.path.join(DATA_DIR,f'train-structure-protein-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord')]
+#filenames = [DATA_DIR + f'train-structure-metabolite-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord']
+
+
 skips = [15000]
 
 atom_number = MAX_ATOM_NUMBER
