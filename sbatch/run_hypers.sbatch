@@ -8,7 +8,7 @@
 #SBATCH --time 0-8:00:00
 #SBATCH --job-name nmrtf-hypers
 
-ROOT_DIR=/home/awhite38/graphnmr
+ROOT_DIR=/scratch/awhite38/graphnmr
 SCRATCH_DIR=$SCRATCH/tf/nmr
 
 source ~/.bashrc

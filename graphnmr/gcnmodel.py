@@ -25,13 +25,13 @@ def safe_div(numerator, denominator, name='graphbuild-safe-div'):
 
 class GCNHypers:
     def __init__(self):
-        self.ATOM_EMBEDDING_SIZE =  32 #Size of space onto which we project elements
-        self.EDGE_EMBEDDING_SIZE = 32 #size of space onto which we poject bonds (single, double, etc.)
-        self.EDGE_EMBEDDING_OUT = 32 # what size edges are used in final model
+        self.ATOM_EMBEDDING_SIZE =  64 #Size of space onto which we project elements
+        self.EDGE_EMBEDDING_SIZE = 3 #size of space onto which we poject bonds (single, double, etc.)
+        self.EDGE_EMBEDDING_OUT = 3 # what size edges are used in final model
         self.BATCH_SIZE = 32 #Amount of data we process at a time, in units of molecules (not atoms!)
-        self.STACKS = 7 #Number of layers in graph convolution
-        self.FC_LAYERS = 4
-        self.EDGE_FC_LAYERS = 4
+        self.STACKS = 3 #Number of layers in graph convolution
+        self.FC_LAYERS = 3
+        self.EDGE_FC_LAYERS = 2
         self.NUM_EPOCHS = 100 #Number of times we do num_batches (how often we stop and save model basically)
         self.NUM_BATCHES = 500 #Number of batches between saves
         self.RESIDUE = True
@@ -40,14 +40,14 @@ class GCNHypers:
         self.GCN_ACTIVATION = tf.keras.activations.tanh
         self.FC_ACTIVATION = tf.keras.activations.relu
         self.LOSS_FUNCTION = tf.losses.mean_squared_error
-        self.LEARNING_RATE = 1e-3
+        self.LEARNING_RATE = 1e-4
         self.DROPOUT_RATE = 0.0
-        self.SAVE_PERIOD = 1
+        self.SAVE_PERIOD = 10
         self.STRATIFY = lambda *x: tf.reshape(x[-1], []) # get last feature, which should be class
         self.EDGE_DISTANCE = True
         self.EDGE_NONBONDED = True
         self.EDGE_LONG_BOND = True
-        self.PEAK_CLIP = 20 # clip peaks at this. Some garbage data always gets through it seems
+        self.PEAK_CLIP = 25 # clip peaks at this. Some garbage data always gets through it seems
 
 class GCNModel:
     def __init__(self, model_path, embedding_dicts, hypers = None):
@@ -85,13 +85,14 @@ class GCNModel:
 
         # assume this order
         if self.hypers.STRATIFY is not None:
-            _, (bond_inputs, atom_inputs, peak_inputs, mask_inputs,name_inputs, class_input) = iterator.get_next()
+            _, (bond_inputs, atom_inputs, peak_inputs, mask_inputs, name_inputs, class_input, record_index) = iterator.get_next()
         else:
-            (bond_inputs, atom_inputs, peak_inputs, mask_inputs, name_inputs, class_input) = iterator.get_next()
+            (bond_inputs, atom_inputs, peak_inputs, mask_inputs, name_inputs, class_input, record_index) = iterator.get_next()
         self.raw_mask = mask_inputs # we will filter by atom type later
         self.peak_labels = tf.clip_by_value(tf.where(tf.is_nan(peak_inputs), tf.zeros_like(peak_inputs), peak_inputs), 0, self.hypers.PEAK_CLIP)
         self.class_label = class_input
         self.names = name_inputs
+        self.record_index = record_index
 
         self.using_dataset = True
 
@@ -290,7 +291,7 @@ class GCNModel:
             raise ValueError('Must build first')
         saver = tf.train.Saver()
 
-        peaks, atoms, dist_mat, bonds, features, class_label, mask, labels = [], [], [], [], [], [], [], []
+        peaks, atoms, dist_mat, bonds, features, class_label, mask, labels, record_index = [], [], [], [], [], [], [], [], []
 
         with tf.Session() as sess:
             self.load(sess)
@@ -306,7 +307,8 @@ class GCNModel:
                             self.feature_mats[-1],
                             self.class_label,
                             self.mask,
-                            self.peak_labels
+                            self.peak_labels,
+                            self.record_index
                         ],
                         feed_dict=self._feed_dict(feed_dict, False))
                 else:
@@ -329,6 +331,7 @@ class GCNModel:
                 if self.using_dataset:
                     mask.extend(result[6])
                     labels.extend(result[7])
+                    record_index.extend(result[7])
 
         ad = self.embedding_dicts['atom']
         rad = dict(zip(ad.values(), ad.keys()))
@@ -343,7 +346,7 @@ class GCNModel:
                 if v == class_label[mi]:
                     name = k
                     break
-            g = nx.Graph(class_label=name)
+            g = nx.Graph(class_label=name, record_index=record_index[mi])
             for i,a in enumerate(atoms[mi]):
                 if a > 0.1: # check if unit
                     g.add_node(i, name=rad[a], peak=peaks[mi][i],
@@ -518,7 +521,7 @@ class GCNModel:
                 ax.set_xticklabels([])
                 ax.get_xaxis().set_ticks([])
                 ax.get_yaxis().set_ticks([])
-                ax.set_title(g.graph['class_label'])
+                ax.set_title(g.graph['class_label'] + ':' + ','.join([str(i) for i in g.graph['record_index']]))
         cm = plt.cm.ScalarMappable(cmap=viridis, norm=plt.Normalize(vmin = 0, vmax=vmax))
         cb = plt.colorbar(cm, shrink=0.8)
         cb.ax.get_yaxis().labelpad = 15

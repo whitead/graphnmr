@@ -81,7 +81,8 @@ def data_parse(proto):
                 'peak-data': tf.FixedLenFeature([MAX_ATOM_NUMBER], tf.float32),
                 'mask-data': tf.FixedLenFeature([MAX_ATOM_NUMBER], tf.float32),
                 'name-data': tf.FixedLenFeature([MAX_ATOM_NUMBER], tf.int64),
-                'residue': tf.FixedLenFeature([1], tf.int64)
+                'residue': tf.FixedLenFeature([1], tf.int64),
+                'indices': tf.FixedLenFeature([3], tf.int64)
                }
     parsed_features = tf.parse_single_example(proto, features) 
     return (parsed_features['bond-data'], 
@@ -89,7 +90,8 @@ def data_parse(proto):
            parsed_features['peak-data'], 
            parsed_features['mask-data'], 
            parsed_features['name-data'],
-           parsed_features['residue'])
+           parsed_features['residue'],
+           parsed_features['indices'])
 
 def create_datasets(filenames, skips):
     datasets = []
@@ -100,27 +102,44 @@ def create_datasets(filenames, skips):
         datasets.append( (d.skip(s), d.take(s)) )
     return datasets
 
-def make_tfrecord(atom_data, mask_data, nlist, peak_data, residue, atom_names):
+def make_tfrecord(atom_data, mask_data, nlist, peak_data, residue, atom_names, indices=np.zeros((3,1), dtype=np.int64)):
+    '''
+    Write out the TF record.
+      
+      atom_data - N ints containing atom indixes
+      mask_data - N floats containing 1/0 for which atoms are begin considered
+      nlist     - N x M x 3 floats neighbor list:
+                    :,:,0 -> distance
+                    :,:,1 -> neighbor index
+                    :,:,2 -> bond count/type
+      peak_data - N containing peak data for training (0 for prediction)
+      residue     - N ints indicating the residue of the atom (for validation)
+      atom_names  - N ints indicating the name of the atom  (for validation)
+      indices       - 3 ints indices to attach to record (for validation)
+    '''
     features = {}
     # nlist
-    # :,:,0 -> distance
-    # :,:,1 -> neighbor index
-    # :,:,2 -> bond count/type
+
     assert atom_data.shape[0] == MAX_ATOM_NUMBER
     assert mask_data.shape[0] == MAX_ATOM_NUMBER
     assert nlist.shape[0] == MAX_ATOM_NUMBER and nlist.shape[1] == NEIGHBOR_NUMBER and nlist.shape[2] == 3
     assert peak_data.shape[0] == MAX_ATOM_NUMBER
     assert atom_names.shape[0] == MAX_ATOM_NUMBER
+    assert len(indices) == 3
     if np.any(np.isnan(peak_data)):
-        print('Found nan in your data!')
+        raise ValueError('Found nan in your data!')
+        # Use code below if you do not care about nans
         peak_data[np.isnan(peak_data)] = 0
         mask_data[np.isnan(peak_data)] = 0
+    if np.any(np.abs(peak_data) > 500):
+        raise ValueError('Found very large peaks, |v| > 500')
     features['bond-data'] = tf.train.Feature(float_list=tf.train.FloatList(value=nlist.flatten()))
     features['atom-data'] = tf.train.Feature(int64_list=tf.train.Int64List(value=atom_data.flatten()))
     features['peak-data'] = tf.train.Feature(float_list=tf.train.FloatList(value=peak_data.flatten()))
     features['mask-data'] = tf.train.Feature(float_list=tf.train.FloatList(value=mask_data.flatten()))
     features['name-data'] = tf.train.Feature(int64_list=tf.train.Int64List(value=atom_names.flatten()))
     features['residue'] = tf.train.Feature(int64_list=tf.train.Int64List(value=[residue]))
+    features['indices'] = tf.train.Feature(int64_list=tf.train.Int64List(value=indices.flatten()))
     # Make training example
     example = tf.train.Example(features=tf.train.Features(feature=features))
     return example

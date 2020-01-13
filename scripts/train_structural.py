@@ -12,7 +12,7 @@ import os, sys
 # 4. Num batches
 
 DO_TRAIN = True
-DO_CHECKS = False
+DO_CHECKS = True
 
 if len(sys.argv) == 3:
     SCRATCH = sys.argv[1]
@@ -69,8 +69,8 @@ def train_model(name, hypers):
 
 train_model('struct-model-5/distance', hypers)
 
-#hypers.EDGE_DISTANCE = False
-#train_model('struct-model-5/longbond', hypers)
+hypers.EDGE_DISTANCE = False
+train_model('struct-model-5/longbond', hypers)
 
-#hypers.EDGE_NONBONDED = False
-#train_model('struct-model-5/sbond', hypers)
+hypers.EDGE_NONBONDED = False
+train_model('struct-model-5/sbond', hypers)

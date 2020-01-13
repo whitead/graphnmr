@@ -5,10 +5,10 @@
 ##SBATCH --exclusive
 #SBATCH --mem=128gb
 #SBATCH --gres=gpu:1
-#SBATCH --time 0-8:00:00
+#SBATCH --time 0-16:00:00
 #SBATCH --job-name nmrtf-structure
 
-ROOT_DIR=/home/awhite38/graphnmr
+ROOT_DIR=/scratch/awhite38/graphnmr
 SCRATCH_DIR=$SCRATCH/tf/nmr
 
 source ~/.bashrc

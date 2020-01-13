@@ -1,5 +1,5 @@
 import tensorflow as tf
-import pickle
+import pickle, sys
 import numpy as np
 import os
 from pdbfixer import PDBFixer
@@ -101,12 +101,14 @@ def align(seq1, seq2):
 def process_pdb(path, corr_path, chain_id, max_atoms,
                 gsd_file, embedding_dicts, NN, nlist_model,
                 keep_residues=[-1, 1],
-                debug=False, units = unit.nanometer, frame_number=3):
+                debug=False, units = unit.nanometer, frame_number=3, model_index=0,
+                log_file=None):
     # load pdb
     pdb = app.PDBFile(path)
 
     # load cs sets
     peak_data, sequence_map, peak_seq = process_corr(corr_path, debug)
+    
     result = []
     # check for weird/null chain
     if chain_id == '_':
@@ -119,8 +121,8 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
     # bonded neighbor mask
     nlist_mask = None
     peak_count = 0
-    # select a random set of frames for generating data.
-    frame_choices = random.choices(range(0, pdb.getNumFrames()), k=frame_number)
+    # select a random set of frames for generating data without replacement
+    frame_choices = random.sample(range(0, pdb.getNumFrames()), k=min(pdb.getNumFrames(), frame_number))
     for fi in frame_choices:
         successes = 0
         # clean up individual frame
@@ -344,14 +346,16 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                 continue
             if gsd_file is not None:
                 snapshot = write_record_traj(positions, atoms, mask, nlist, peaks, embedding_dicts['class'][residues[ri].name], names, embedding_dicts)
-                snapshot.configuration.step = successes
+                snapshot.configuration.step = len(gsd_file)
                 gsd_file.append(snapshot)
-            result.append(make_tfrecord(atoms, mask, nlist, peaks, embedding_dicts['class'][residues[ri].name], names))
+            result.append(make_tfrecord(atoms, mask, nlist, peaks, embedding_dicts['class'][residues[ri].name], names, indices=np.array([model_index, fi, int(residues[ri].id)], dtype=np.int64)))
+            if log_file is not None:
+                log_file.write('{} {} {} {} {} {} {} {}\n'.format(path.split('/')[-1], corr_path.split('/')[-1], chain_id, successes, len(gsd_file), model_index, fi, residues[ri].id))
             successes += 1
     return result, successes / len(peak_data), len(result), peak_count
 
 
-PROTEIN_DIR = 'data/proteins/'
+PROTEIN_DIR = sys.argv[1]
 WRITE_FRAG_PERIOD = 25
 
 # load embedding information
@@ -374,26 +378,28 @@ config = tf.ConfigProto(
 with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.format(MAX_ATOM_NUMBER, NEIGHBOR_NUMBER),
                                  options=tf.io.TFRecordCompressionType.GZIP) as writer:
     with tf.Session(config=config) as sess,\
-        gsd.hoomd.open(name='protien_frags.gsd', mode='wb') as gsd_file:
+        gsd.hoomd.open(name='protein_frags.gsd', mode='wb') as gsd_file,\
+        open('record_info.txt', 'w') as rinfo:
         # multiply x 8 in case we have some 1,3, or 1,4 neighbors that we don't want
         NN = NEIGHBOR_NUMBER * 8
         nm = nlist_model(NN, sess)
         pbar = tqdm.tqdm(items)
-
+        rinfo.write('PDB Corr Chain Count GSD_id Model_id Frame_id Residue_id')
         for index, entry in enumerate(pbar):
             try:
                 result, p, n, pc = process_pdb(PROTEIN_DIR + entry['pdb_file'], PROTEIN_DIR + entry['corr'], entry['chain'],
-                                        gsd_file=gsd_file if index % WRITE_FRAG_PERIOD == 0 else None,
+                                        gsd_file=gsd_file,
                                         max_atoms=MAX_ATOM_NUMBER, embedding_dicts=embedding_dicts, NN=NN,
-                                        nlist_model=nm)
+                                               nlist_model=nm, model_index=index, log_file=rinfo)
                 pbar.set_description('Processed PDB {} ({}). Successes {} ({:.2}). Total Records: {}, Peaks: {}. Wrote frags: {}'.format(
                                    entry['pdb_id'], entry['corr'], n, p, records, peaks, index % WRITE_FRAG_PERIOD == 0))
                 for r in result:
                     writer.write(r.SerializeToString())
                 records += n
                 peaks += pc
+                rinfo.flush()
                 save_embeddings(embedding_dicts, 'embeddings.pb')
-            except (ValueError, IndexError) as e:
+            except (IndexError) as e:
                 print(traceback.format_exc())
                 pbar.set_description('Failed in ' +  entry['pdb_id'], entry['corr'])
 print('wrote ', records)
