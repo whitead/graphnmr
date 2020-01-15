@@ -399,7 +399,7 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
                 peaks += pc
                 rinfo.flush()
                 save_embeddings(embedding_dicts, 'embeddings.pb')
-            except (IndexError) as e:
+            except (ValueError, IndexError) as e:
                 print(traceback.format_exc())
                 pbar.set_description('Failed in ' +  entry['pdb_id'], entry['corr'])
 print('wrote ', records)

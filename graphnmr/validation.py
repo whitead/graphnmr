@@ -2,25 +2,26 @@ from .data import *
 import matplotlib.pyplot as plt
 import numpy as np
 
-def load_records(filename, batch_size=32):
+def load_records(filename, batch_size=1):
     data = tf.data.TFRecordDataset(filename, compression_type='GZIP').map(data_parse)
     data = data.batch(batch_size)
     iterator = tf.data.Iterator.from_structure(data.output_types, data.output_shapes)
     init_op = iterator.make_initializer(data)
-    bond_inputs, atom_inputs, peak_inputs, mask_inputs,name_inputs, class_input = iterator.get_next()
+    bond_inputs, atom_inputs, peak_inputs, mask_inputs,name_inputs, class_input, record_index = iterator.get_next()
     return init_op, {'features': atom_inputs,
             'nlist': bond_inputs,
             'peaks': peak_inputs,
             'mask': mask_inputs,
             'name': name_inputs,
-            'class': class_input}
+            'class': class_input,
+            'index': record_index}
 
 def peak_summary(data, embeddings, nbins, hist_range, predict_atom='H'):
     mask = data['mask'] * tf.cast(tf.math.equal(data['features'], embeddings['atom'][predict_atom]), tf.float32)
     hist = tf.histogram_fixed_width(data['peaks'] * mask, hist_range, nbins)
     run_ops = []
     # check for nans
-    check = tf.check_numerics(data['peaks'], 'peaks invalid')
+    check = tf.check_numerics(data['peaks'], 'peaks invalid in {}'.format(data['index']))
     run_ops.append(check)
     # throw out zeros
     hist = hist * tf.constant([0] + [1] * (nbins - 1), dtype=tf.int32)

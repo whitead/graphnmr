@@ -12,7 +12,7 @@ import os, sys
 # 4. Num batches
 
 DO_TRAIN = True
-DO_CHECKS = True
+DO_CHECKS = False
 
 if len(sys.argv) == 3:
     SCRATCH = sys.argv[1]
