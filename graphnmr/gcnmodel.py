@@ -2,6 +2,7 @@ import tensorflow as tf
 import os
 from tensorflow.contrib.tensorboard.plugins import projector
 import tqdm
+from .data import data_parse
 
 
 def safe_div(numerator, denominator, name='graphbuild-safe-div'):
@@ -99,6 +100,26 @@ class GCNModel:
         print('done')
 
         self.build(atom_inputs, bond_inputs, *args, **kw_args)
+
+    def build_from_dataset(self, filename, *args, **kw_args):
+        
+        tf_dataset = tf.data.TFRecordDataset([filename]).map(data_parse).batch(self.hypers.BATCH_SIZE)
+
+        # Now we make an iterator which allows us to view different batches of data
+        iterator = tf.data.Iterator.from_structure(tf_dataset.output_types, tf_dataset.output_shapes)
+        self.train_init_op = None
+        self.test_init_op = iterator.make_initializer(tf_dataset)
+
+        # assume this order
+        (bond_inputs, atom_inputs, peak_inputs, mask_inputs, name_inputs, class_input, record_index) = iterator.get_next()
+        self.raw_mask = mask_inputs # we will filter by atom type later
+        self.peak_labels = tf.clip_by_value(tf.where(tf.is_nan(peak_inputs), tf.zeros_like(peak_inputs), peak_inputs), 0, self.hypers.PEAK_CLIP)
+        self.class_label = class_input
+        self.names = name_inputs
+        self.record_index = record_index
+        self.using_dataset = True
+        self.build(atom_inputs, bond_inputs, *args, **kw_args)
+
 
     def _feed_dict(self, fd, training):
         return {**fd, self.dropout_rate:self.hypers.DROPOUT_RATE if training else 0}
@@ -262,26 +283,37 @@ class GCNModel:
 
     def eval(self, feed_dict={}):
         saver = tf.train.Saver()
+        result = []
         with tf.Session() as sess:
             self.load(sess)
             if self.using_dataset:
                 sess.run(self.test_init_op)
-            result = sess.run(
-                {
-                    'peaks': self.peaks,
-                    'bonds': self.adjacency,
-                    'dist': self.dist_mat,
-                    'nlist': self.nlist,
-                    'atom_embed': self.atom_embed,
-                    'bond_embed': self.bond_embed,
-                    'atom_embeddings': self.atom_embeddings,
-                    'degree_mat': self.degree_mat,
-                    'bond_aug': self.bond_aug,
-                    'F0': self.feature_mats[0],
-                    'F1': self.feature_mats[1],
-                    'FL': self.feature_mats[-1]
-                },
-                feed_dict=self._feed_dict(feed_dict, False))
+            # hope it's not repeated!            
+            try:
+                print('Evaluating test data: ', end='')
+                N = 0
+                while True:
+                    result.append(sess.run(
+                        {
+                            'peaks': self.peaks,
+                            'bonds': self.adjacency,
+                            'dist': self.dist_mat,
+                            'nlist': self.nlist,                
+                            'record_index': self.record_index,
+                            'atom_embed': self.atom_embed,
+                            'bond_embed': self.bond_embed,
+                            'atom_embeddings': self.atom_embeddings,
+                            'degree_mat': self.degree_mat,
+                            'bond_aug': self.bond_aug,
+                            'F0': self.feature_mats[0],
+                            'F1': self.feature_mats[1],
+                            'FL': self.feature_mats[-1]                    
+                        },
+                                  feed_dict=self._feed_dict(feed_dict, False)))
+                    N += 1
+                    print('\rEvaluating test data: {}'.format(N), end='')
+            except tf.errors.OutOfRangeError:
+                print('')
         return result
 
     def to_networkx(self, number=16, feed_dict = {}):
