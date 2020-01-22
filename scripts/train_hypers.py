@@ -21,16 +21,16 @@ filenames = [os.path.join(DATA_DIR,f'train-structure-protein-data-{MAX_ATOM_NUMB
 #filenames = [DATA_DIR + f'train-structure-metabolite-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord']
 
 
-skips = [15000]
+skips = [25000]
 
 atom_number = MAX_ATOM_NUMBER
 neighbor_number = NEIGHBOR_NUMBER
 
 hypers = GCNHypers()
-hypers.NUM_EPOCHS = 1000
+hypers.NUM_EPOCHS = 100
 hypers.NUM_BATCHES = 256
 hypers.BATCH_SIZE = 32
-hypers.SAVE_PERIOD = 250
+hypers.SAVE_PERIOD = 10
 hypers.LOSS_FUNCTION = tf.losses.mean_squared_error
 hypers.STRATIFY = None
 hypers.EDGE_DISTANCE = True
@@ -53,8 +53,8 @@ def train_model(name, hypers):
     return model.eval_train()
 
 
-embeds = [8, 16, 32, 64]
-stacks = [2, 4, 8, 12]
+embeds = [4, 16, 32, 64]
+stacks = [2, 4, 6, 12]
 
 fig, axs = plt.subplots(len(embeds), len(stacks), figsize=(14, 14), sharex='col', sharey='row',
                         gridspec_kw={'hspace': 0.2, 'wspace': 0.2})
@@ -62,7 +62,7 @@ for i,e in enumerate(embeds):
     for j,s in enumerate(stacks):
         hypers.STACKS = s
         hypers.ATOM_EMBEDDING_SIZE = e
-        p,l,c,n = train_model('struct-model-4/hypers-{}-{}'.format(e,s), hypers)
+        p,l,c,n = train_model('struct-model-6/hypers-{}-{}'.format(e,s), hypers)
         p = np.array(p)
         l = np.array(l)
         ax = axs[i, j]

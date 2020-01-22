@@ -5,7 +5,7 @@
 #SBATCH --exclusive
 #SBATCH --mem=128gb
 #SBATCH --gres=gpu:1
-#SBATCH --time 0-8:00:00
+#SBATCH --time 0-24:00:00
 #SBATCH --job-name nmrtf-hypers
 
 ROOT_DIR=/scratch/awhite38/graphnmr

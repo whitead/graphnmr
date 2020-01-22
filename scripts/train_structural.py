@@ -38,7 +38,7 @@ hypers = GCNHypers()
 hypers.NUM_EPOCHS = 1000
 hypers.NUM_BATCHES = 256
 hypers.BATCH_SIZE = 32
-hypers.SAVE_PERIOD = 50
+hypers.SAVE_PERIOD = 250
 hypers.LOSS_FUNCTION = tf.losses.mean_squared_error
 hypers.STRATIFY = None
 hypers.EDGE_DISTANCE = True
@@ -66,11 +66,23 @@ def train_model(name, hypers):
     print('Model top 1 error', top1)
     model.plot_examples(MAX_ATOM_NUMBER, top1, 25)
 
+train_model('struct-model-6/baseline', hypers)
 
-train_model('struct-model-5/distance', hypers)
+hypers.RESIDUE = True
+train_model('struct-model-6/residue', hypers)
+
+hypers.BATCH_NORM = True
+train_model('struct-model-6/residue-batchnorm', hypers)
+
+hypers.NON_LINEAR = True
+train_model('struct-model-6/nonlinear-residue-batchnorm', hypers)
+
+
+hypers.BATCH_NORM = False
+hypers.RESIDUE = False
 
 hypers.EDGE_DISTANCE = False
-train_model('struct-model-5/longbond', hypers)
+train_model('struct-model-6/longbond', hypers)
 
 hypers.EDGE_NONBONDED = False
-train_model('struct-model-5/sbond', hypers)
+train_model('struct-model-6/sbond', hypers)

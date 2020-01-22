@@ -27,16 +27,19 @@ def safe_div(numerator, denominator, name='graphbuild-safe-div'):
 class GCNHypers:
     def __init__(self):
         self.ATOM_EMBEDDING_SIZE =  64 #Size of space onto which we project elements
-        self.EDGE_EMBEDDING_SIZE = 3 #size of space onto which we poject bonds (single, double, etc.)
-        self.EDGE_EMBEDDING_OUT = 3 # what size edges are used in final model
+        self.EDGE_EMBEDDING_SIZE = 2 #size of space onto which we poject bonds (single, double, etc.)
+        self.EDGE_EMBEDDING_OUT = 2 # what size edges are used in final model
         self.BATCH_SIZE = 32 #Amount of data we process at a time, in units of molecules (not atoms!)
         self.STACKS = 3 #Number of layers in graph convolution
         self.FC_LAYERS = 3
         self.EDGE_FC_LAYERS = 2
         self.NUM_EPOCHS = 100 #Number of times we do num_batches (how often we stop and save model basically)
         self.NUM_BATCHES = 500 #Number of batches between saves
-        self.RESIDUE = True
-        self.GCN_BIAS = True
+        self.GCN_RESIDUE = False
+        self.RESIDUE = False
+        self.GCN_BIAS = False
+        self.BATCH_NORM = False
+        self.NON_LINEAR = False
         #self.GCN_ACTIVATION = tf.keras.layers.LeakyReLU(0.1)
         self.GCN_ACTIVATION = tf.keras.activations.tanh
         self.FC_ACTIVATION = tf.keras.activations.relu
@@ -298,7 +301,9 @@ class GCNModel:
                             'peaks': self.peaks,
                             'bonds': self.adjacency,
                             'dist': self.dist_mat,
-                            'nlist': self.nlist,                
+                            'nlist': self.nlist, 
+                            'mask': self.mask,
+                            'names': self.names,
                             'record_index': self.record_index,
                             'atom_embed': self.atom_embed,
                             'bond_embed': self.bond_embed,
@@ -716,20 +721,29 @@ class StructGCNModel(GCNModel):
                 if self.hypers.GCN_BIAS:
                     out = self.hypers.GCN_ACTIVATION(reduced + b)
                 else:
-                    out = self.hypers.GCN_ACTIVATION(reduced)                    
-                out = tf.keras.layers.BatchNormalization()(out)
-                self.feature_mats.append(out)
+                    out = self.hypers.GCN_ACTIVATION(reduced)
+                if self.hypers.BATCH_NORM:
+                    out = tf.keras.layers.BatchNormalization()(out)
+                if self.hypers.RESIDUE:
+                    self.feature_mats.append(out + self.feature_mats[-1])
+                else:
+                    self.feature_mats.append(out)
                 self.weights.append(w)
-            if self.hypers.RESIDUE:
-                self.feature_mats.append(out + self.feature_mats[len(self.feature_mats) // 2])
         # flatten to avoid training as function of atom position
         x = tf.keras.layers.Dropout(self.dropout_rate, noise_shape=[batch_size,1,self.hypers.ATOM_EMBEDDING_SIZE])(self.feature_mats[-1])
-        for hl in range(self.hypers.FC_LAYERS - 2):
-            x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE, activation=tf.keras.activations.relu)(x)
-            x = tf.keras.layers.BatchNormalization()(x)
+        x0 = x
+        for hl in range(self.hypers.FC_LAYERS - 2 if self.hypers.NON_LINEAR else self.hypers.FC_LAYERS - 1):
+            x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE, activation=None)(x)
+            if self.hypers.BATCH_NORM:
+                x = tf.keras.layers.BatchNormalization()(x)
+            if self.hypers.RESIDUE:
+                x = x + x0
+            x = tf.keras.activations.relu()(x)
         # penultimate with non-linearity (?)
-        x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE, activation=tf.keras.activations.tanh)(x)
-        x = tf.keras.layers.BatchNormalization()(x)
+        if self.hypers.NON_LINEAR:
+            x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE // 2, activation=tf.keras.activations.tanh)(x)
+            if self.hypers.BATCH_NORM:
+                x = tf.keras.layers.BatchNormalization()(x)
         self.peaks = tf.keras.layers.Flatten()(tf.keras.layers.Dense(1)(x))
         self.built = True
 
