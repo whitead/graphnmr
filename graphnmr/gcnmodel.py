@@ -738,7 +738,7 @@ class StructGCNModel(GCNModel):
                 x = tf.keras.layers.BatchNormalization()(x)
             if self.hypers.RESIDUE:
                 x = x + x0
-            x = tf.keras.activations.relu()(x)
+            x = tf.keras.activations.relu(x)
         # penultimate with non-linearity (?)
         if self.hypers.NON_LINEAR:
             x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE // 2, activation=tf.keras.activations.tanh)(x)
