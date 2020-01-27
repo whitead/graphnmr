@@ -36,10 +36,10 @@ class GCNHypers:
         self.NUM_EPOCHS = 100 #Number of times we do num_batches (how often we stop and save model basically)
         self.NUM_BATCHES = 500 #Number of batches between saves
         self.GCN_RESIDUE = False
-        self.RESIDUE = False
+        self.RESIDUE = True
         self.GCN_BIAS = False
         self.BATCH_NORM = False
-        self.NON_LINEAR = False
+        self.NON_LINEAR = True
         #self.GCN_ACTIVATION = tf.keras.layers.LeakyReLU(0.1)
         self.GCN_ACTIVATION = tf.keras.activations.tanh
         self.FC_ACTIVATION = tf.keras.activations.relu

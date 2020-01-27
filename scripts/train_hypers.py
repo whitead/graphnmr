@@ -53,8 +53,8 @@ def train_model(name, hypers):
     return model.eval_train()
 
 
-embeds = [4, 16, 32, 64]
-stacks = [2, 4, 6, 12]
+embeds = [16, 32, 64, 128]
+stacks = [2, 3, 6, 12]
 
 fig, axs = plt.subplots(len(embeds), len(stacks), figsize=(14, 14), sharex='col', sharey='row',
                         gridspec_kw={'hspace': 0.2, 'wspace': 0.2})
@@ -62,7 +62,7 @@ for i,e in enumerate(embeds):
     for j,s in enumerate(stacks):
         hypers.STACKS = s
         hypers.ATOM_EMBEDDING_SIZE = e
-        p,l,c,n = train_model('struct-model-6/hypers-{}-{}'.format(e,s), hypers)
+        p,l,c,n = train_model('struct-model-7/hypers-{}-{}'.format(e,s), hypers)
         p = np.array(p)
         l = np.array(l)
         ax = axs[i, j]

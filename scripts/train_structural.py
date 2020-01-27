@@ -66,23 +66,27 @@ def train_model(name, hypers):
     print('Model top 1 error', top1)
     model.plot_examples(MAX_ATOM_NUMBER, top1, 25)
 
-train_model('struct-model-6/baseline', hypers)
+train_model('struct-model-7/baseline', hypers)
 
-hypers.RESIDUE = True
-train_model('struct-model-6/residue', hypers)
+hypers.GCN_BIAS = True
+train_model('struct-model-7/gcn-bias', hypers)
+hypers.GCN_BIAS = False
 
-hypers.BATCH_NORM = True
-train_model('struct-model-6/residue-batchnorm', hypers)
+hypers.GCN_RESIDUE = True
+train_model('struct-model-7/gcn-residue', hypers)
+hypers.GCN_RESIDUE = False
 
-hypers.NON_LINEAR = True
-train_model('struct-model-6/nonlinear-residue-batchnorm', hypers)
+hypers.FC_LAYERS = 4
+train_model('struct-model-7/2-fc', hypers)
 
 
-hypers.BATCH_NORM = False
-hypers.RESIDUE = False
+hypers.FC_LAYERS = 6
+train_model('struct-model-7/6-fc', hypers)
+hypers.FC_LAYERS = 3
+
 
 hypers.EDGE_DISTANCE = False
-train_model('struct-model-6/longbond', hypers)
+train_model('struct-model-7/longbond', hypers)
 
 hypers.EDGE_NONBONDED = False
-train_model('struct-model-6/sbond', hypers)
+train_model('struct-model-7/sbond', hypers)
