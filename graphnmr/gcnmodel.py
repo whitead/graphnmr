@@ -26,11 +26,11 @@ def safe_div(numerator, denominator, name='graphbuild-safe-div'):
 
 class GCNHypers:
     def __init__(self):
-        self.ATOM_EMBEDDING_SIZE =  64 #Size of space onto which we project elements
-        self.EDGE_EMBEDDING_SIZE = 2 #size of space onto which we poject bonds (single, double, etc.)
-        self.EDGE_EMBEDDING_OUT = 2 # what size edges are used in final model
+        self.ATOM_EMBEDDING_SIZE =  128 #Size of space onto which we project elements
+        self.EDGE_EMBEDDING_SIZE = 4 #size of space onto which we poject bonds (single, double, etc.)
+        self.EDGE_EMBEDDING_OUT = 4 # what size edges are used in final model
         self.BATCH_SIZE = 32 #Amount of data we process at a time, in units of molecules (not atoms!)
-        self.STACKS = 3 #Number of layers in graph convolution
+        self.STACKS = 4 #Number of layers in graph convolution
         self.FC_LAYERS = 3
         self.EDGE_FC_LAYERS = 2
         self.NUM_EPOCHS = 100 #Number of times we do num_batches (how often we stop and save model basically)
@@ -40,8 +40,8 @@ class GCNHypers:
         self.GCN_BIAS = False
         self.BATCH_NORM = False
         self.NON_LINEAR = True
-        #self.GCN_ACTIVATION = tf.keras.layers.LeakyReLU(0.1)
-        self.GCN_ACTIVATION = tf.keras.activations.tanh
+        self.GCN_ACTIVATION = tf.keras.layers.LeakyReLU(0.1)
+        #self.GCN_ACTIVATION = tf.keras.activations.tanh
         self.FC_ACTIVATION = tf.keras.activations.relu
         self.LOSS_FUNCTION = tf.losses.mean_squared_error
         self.LEARNING_RATE = 1e-4
@@ -647,7 +647,7 @@ class StructGCNModel(GCNModel):
 
             # edge features includes bonded distance and distance. Bonded distance of 0 = intermolecule neighbor
             # total size is edge embedding size
-            x = tf.keras.layers.Dropout(self.dropout_rate, noise_shape=[batch_size,1,self.hypers.EDGE_EMBEDDING_SIZE])(self.bond_embed)
+            x = self.bond_embed
             for _ in range(self.hypers.EDGE_FC_LAYERS - 2):
                 x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_SIZE, activation=tf.keras.activations.relu)(x)
                 x = tf.keras.layers.BatchNormalization()(x)
