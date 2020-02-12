@@ -39,7 +39,6 @@ hypers.NUM_EPOCHS = 1000
 hypers.NUM_BATCHES = 256
 hypers.BATCH_SIZE = 32
 hypers.SAVE_PERIOD = 250
-hypers.LOSS_FUNCTION = tf.losses.mean_squared_error
 hypers.STRATIFY = None
 hypers.EDGE_DISTANCE = True
 hypers.EDGE_NONBONDED = True
@@ -66,23 +65,23 @@ def train_model(name, hypers):
     print('Model top 1 error', top1)
     model.plot_examples(MAX_ATOM_NUMBER, top1, 25)
 
-#train_model('struct-model-8/baseline', hypers)
+train_model('struct-model-9/baseline', hypers)
 
+hypers.EDGE_DISTANCE = False
+hypers.EDGE_NONBONDED = False
+hypers.EDGE_LONG_BOND = False
+
+train_model('struct-model-9/bonds', hypers)
+
+hypers.EDGE_NONBONDED = True
+train_model('struct-model-9/nonbonds', hypers)
+
+# LEAVE THESE!
 hypers.GCN_RESIDUE = True
 hypers.GCN_BIAS = True
 hypers.BATCH_NORM = True
 hypers.DROPOUT_RATE = 0.2
 hypers.EDGE_FC_LAYERS = 3
 hypers.FC_LAYERS = 4
-
-hypers.EDGE_DISTANCE = False
-hypers.EDGE_NONBONDED = False
-hypers.EDGE_LONG_BOND = False
-train_model('struct-model-8/bonds', hypers)
-
-hypers.EDGE_NONBONDED = True
-train_model('struct-model-8/nonbonds', hypers)
-
-
 hypers.EDGE_LONG_BOND = True
-#train_model('struct-model-8/kitchen-sink', hypers)
+train_model('struct-model-9/kitchen-sink', hypers)

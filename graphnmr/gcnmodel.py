@@ -43,7 +43,7 @@ class GCNHypers:
         self.GCN_ACTIVATION = tf.keras.layers.LeakyReLU(0.1)
         #self.GCN_ACTIVATION = tf.keras.activations.tanh
         self.FC_ACTIVATION = tf.keras.activations.relu
-        self.LOSS_FUNCTION = tf.losses.mean_squared_error
+        self.LOSS_FUNCTION = tf.losses.huber_loss
         self.LEARNING_RATE = 1e-4
         self.DROPOUT_RATE = 0.0
         self.SAVE_PERIOD = 10
@@ -423,7 +423,10 @@ class GCNModel:
             corr = np.corrcoef(fit_labels, fit_predict)[0,1]
             N = len(fit_labels)
             plt.figure(figsize=(5,4))
-            plt.scatter(fit_labels, fit_predict, marker='o', s=6, alpha=0.5, linewidth=0,
+            if len(np.unique(fit_class) > 5):                                
+                plt.scatter(fit_labels, fit_predict, marker='o', s=6, alpha=0.5, linewidth=0)
+            else:
+                plt.scatter(fit_labels, fit_predict, marker='o', s=6, alpha=0.5, linewidth=0,
                         c=np.array(fit_class).reshape(-1), cmap=plt.get_cmap('tab20'))
             # take top 1% for upper bound
             mmax = np.quantile(fit_labels, q=[0.99] )[0] * 1.2
@@ -432,6 +435,7 @@ class GCNModel:
             plt.ylim(0, mmax)
             plt.xlabel('Measured Shift [ppm]')
             plt.ylabel('Predicted Shift [ppm]')
+            plt.savefig(plot_dir + title + '-nostats.png', dpi=300)
             plt.title(title + ': RMSD = {:.4f}. MAE = {:.4f} R^2 = {:.4f}. N={}'.format(rmsd,mae, corr**2, N))
             plt.savefig(plot_dir + title + '.png', dpi=300)
             plt.close()
