@@ -47,7 +47,7 @@ class GCNHypers:
         self.LEARNING_RATE = 1e-4
         self.DROPOUT_RATE = 0.0
         self.SAVE_PERIOD = 10
-        self.STRATIFY = lambda *x: tf.reshape(x[-1], []) # get last feature, which should be class
+        self.STRATIFY = False
         self.EDGE_DISTANCE = True
         self.EDGE_NONBONDED = True
         self.EDGE_LONG_BOND = True
@@ -72,12 +72,13 @@ class GCNModel:
         train_dataset = datasets[0][0]
         test_dataset = datasets[0][1]
 
+
         # make a train and test dataset, where test is size TEST_N and train is size BATCH_SIZE repeated indefinitely
         # This removes TEST_N data points for validation. Then we say repeat test data as many times as wanted
-        if self.hypers.STRATIFY is not None:
-            target_dist = [1 / len(self.embedding_dicts['class']) for _ in self.embedding_dicts['class']]
+        if self.hypers.STRATIFY:
+            target_dist = [1 / len(self.embedding_dicts['clas']) for _ in self.embedding_dicts['class']]
             print('Will stratify dataset to', target_dist)
-            train_dataset = train_dataset.apply(tf.data.experimental.rejection_resample(self.hypers.STRATIFY, target_dist))
+            train_dataset = train_dataset.apply(tf.data.experimental.rejection_resample(lambda *x: tf.reshape(x[4], []), target_dist))
 
         test_dataset = test_dataset.batch(self.hypers.BATCH_SIZE)
         train_dataset = train_dataset.batch(self.hypers.BATCH_SIZE)
@@ -387,8 +388,8 @@ class GCNModel:
             for i,a in enumerate(atoms[mi]):
                 if a > 0.1: # check if unit
                     g.add_node(i, name=rad[a], peak=peaks[mi][i],
-                               mask = 1 if mask is self.using_dataset else mask[mi][i],
-                               label = None if labels is self.using_dataset else labels[mi][i],
+                               mask = 1 if not self.using_dataset else mask[mi][i],
+                               label = None if not self.using_dataset else labels[mi][i],
                                features = ','.join([str(np.round(n, 1)) for n in features[mi][i]]))
             for i in range(len(atoms[mi])):
                 for j in range(len(atoms[mi])):

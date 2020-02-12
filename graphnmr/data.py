@@ -102,7 +102,7 @@ def create_datasets(filenames, skips):
         datasets.append( (d.skip(s), d.take(s)) )
     return datasets
 
-def make_tfrecord(atom_data, mask_data, nlist, peak_data, residue, atom_names, indices=np.zeros((3,1), dtype=np.int64)):
+def make_tfrecord(atom_data, mask_data, nlist, peak_data, residue, atom_names, weights=None, indices=np.zeros((3,1), dtype=np.int64)):
     '''
     Write out the TF record.
       

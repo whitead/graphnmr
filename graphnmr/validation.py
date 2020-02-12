@@ -88,3 +88,25 @@ def validate_embeddings(filename, embeddings, batch_size=32):
         except tf.errors.OutOfRangeError:
             pass
     print('\nValid')                
+
+
+def count_names(filename, embeddings, batch_size=32):
+    tf.reset_default_graph()
+    init_data_op, data = load_records(filename, batch_size=batch_size)    
+    name_counts = [0 for _ in range(len(embeddings['name']))]
+    
+    with tf.Session() as sess:
+        sess.run(init_data_op)
+        try:
+            count = 0
+            while True:
+                mask, names = sess.run([data['mask'], data['name']])
+                masked = (names * mask).flatten()
+                for j in masked[masked > 0]:
+                    name_counts[int(j)] += 1
+                    count += 1                
+                print('\rCounting names...{}'.format(count), end='')
+        except tf.errors.OutOfRangeError:
+            print('Dataset complete')
+            pass
+    return np.array(name_counts)
