@@ -98,7 +98,7 @@ def create_datasets(filenames, skips):
     for f,s in zip(filenames, skips):
         d = tf.data.TFRecordDataset([f], compression_type='GZIP').map(data_parse)
         # TODO: solve this in the data (?)
-        d.filter(lambda *args: tf.reduce_all(tf.is_finite(args[2])))
+        #d.filter(lambda *args: tf.reduce_all(tf.is_finite(args[2])))
         datasets.append( (d.skip(s), d.take(s)) )
     return datasets
 

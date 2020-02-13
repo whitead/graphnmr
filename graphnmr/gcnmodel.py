@@ -26,7 +26,7 @@ def safe_div(numerator, denominator, name='graphbuild-safe-div'):
 
 class GCNHypers:
     def __init__(self):
-        self.ATOM_EMBEDDING_SIZE =  128 #Size of space onto which we project elements
+        self.ATOM_EMBEDDING_SIZE =  16 #Size of space onto which we project elements
         self.EDGE_EMBEDDING_SIZE = 4 #size of space onto which we poject bonds (single, double, etc.)
         self.EDGE_EMBEDDING_OUT = 4 # what size edges are used in final model
         self.BATCH_SIZE = 32 #Amount of data we process at a time, in units of molecules (not atoms!)
@@ -65,9 +65,9 @@ class GCNModel:
         self.dropout_rate = tf.placeholder(dtype=tf.float32, shape=[])
         self.global_steps = 0
 
-    def build_from_datasets(self, datasets, dataset_choices=None, shuffle=100, *args, **kw_args):
+    def build_from_datasets(self, datasets, dataset_choices=None, shuffle=10000, *args, **kw_args):
         
-        print('Building from datasets {}...'.format(datasets), end='')
+        print('Building from datasets {}. Will shuffle with buffer {}...'.format(datasets, shuffle), end='')
         # datasets should be tuples with train, test
         train_dataset = datasets[0][0]
         test_dataset = datasets[0][1]
@@ -80,8 +80,8 @@ class GCNModel:
             print('Will stratify dataset to', target_dist)
             train_dataset = train_dataset.apply(tf.data.experimental.rejection_resample(lambda *x: tf.reshape(x[4], []), target_dist))
 
-        test_dataset = test_dataset.batch(self.hypers.BATCH_SIZE)
-        train_dataset = train_dataset.batch(self.hypers.BATCH_SIZE)
+        test_dataset = test_dataset.batch(self.hypers.BATCH_SIZE)        
+        train_dataset = train_dataset.shuffle(shuffle).batch(self.hypers.BATCH_SIZE)
 
         # Now we make an iterator which allows us to view different batches of data
         iterator = tf.data.Iterator.from_structure(train_dataset.output_types, train_dataset.output_shapes)

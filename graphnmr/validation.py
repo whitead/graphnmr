@@ -17,7 +17,7 @@ def load_records(filename, batch_size=1):
             'index': record_index}
 
 def peak_summary(data, embeddings, nbins, hist_range, predict_atom='H'):
-    mask = data['mask'] * tf.cast(tf.math.equal(data['features'], embeddings['atom'][predict_atom]), tf.float32)
+    mask = tf.cast(data['mask'] > 0, tf.float32) * tf.cast(tf.math.equal(data['features'], embeddings['atom'][predict_atom]), tf.float32)
     hist = tf.histogram_fixed_width(data['peaks'] * mask, hist_range, nbins)
     run_ops = []
     # check for nans
@@ -49,10 +49,12 @@ def validate_peaks(filename, embeddings, batch_size=32):
         sess.run(init_data_op)
         try:
             i = 0
+            records = 0
             while True:
                 peaks_min, peaks_max, histogram, count, *_ = sess.run([peaks_min_op, peaks_max_op, histogram_op, count_op] + run_ops)
                 i += count
-                print('\rValidating Peaks...{} min {} max {}'.format(i, peaks_min, peaks_max), end='')
+                records += batch_size
+                print('\rValidating Peaks...peaks: {} records: {} min: {} max: {}'.format(i, records, peaks_min, peaks_max), end='')
         except tf.errors.OutOfRangeError:
             print('Dataset complete')
             pass
@@ -76,7 +78,7 @@ def validate_embeddings(filename, embeddings, batch_size=32):
     assert_ops.append(tf.less(tf.reduce_max(tf.cast(data['nlist'][:,:,2], tf.int32)), 
                               tf.constant(max(list(embeddings['nlist'].values())))))
     assert_ops.append(tf.less(tf.reduce_max(data['mask']), 
-                              tf.constant(1.)))
+                              tf.constant(0.1)))
     with tf.Session() as sess:
         sess.run(init_data_op)
         try:
