@@ -40,7 +40,7 @@ class GCNHypers:
         self.GCN_BIAS = False
         self.BATCH_NORM = False
         self.NON_LINEAR = True
-        self.GCN_ACTIVATION = tf.keras.layers.relu # This change needs to be validated as irrelevant tf.keras.layers.LeakyReLU(0.1)
+        self.GCN_ACTIVATION = tf.keras.activations.relu # This change needs to be validated as irrelevant tf.keras.layers.LeakyReLU(0.1)
         #self.GCN_ACTIVATION = tf.keras.activations.tanh
         self.FC_ACTIVATION = tf.keras.activations.relu
         self.LOSS_FUNCTION = tf.losses.huber_loss
