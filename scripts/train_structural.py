@@ -24,7 +24,7 @@ else:
 embedding_dicts = load_embeddings(os.path.join(DATA_DIR,'embeddings.pb'))
 
 # read data from this file
-filenames = [os.path.join(DATA_DIR,f'train-structure-protein-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord')]
+filenames = [os.path.join(DATA_DIR,f'train-structure-protein-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}-weighted.tfrecord')]
 #filenames = [DATA_DIR + f'train-structure-metabolite-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord']
 
 if DO_CHECKS:
@@ -69,7 +69,7 @@ hypers.ATOM_EMBEDDING_SIZE =  256 #Size of space onto which we project elements
 hypers.EDGE_DISTANCE = True
 hypers.GCN_RESIDUE = True
 hypers.DROPOUT_RATE = 0.2 #?
-train_model('struct-model-10/baseline-3000', hypers)
+train_model('struct-model-10/baseline-3000-weighted', hypers)
 
 
 hypers.EDGE_DISTANCE = False

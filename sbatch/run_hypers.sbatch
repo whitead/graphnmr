@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --partition gpu
+#SBATCH --partition awhite
 #SBATCH --nodes 1
 ##SBATCH --exclusive
 ##SBATCH --mem=128gb
