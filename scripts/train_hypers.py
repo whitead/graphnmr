@@ -26,17 +26,8 @@ skips = [25000]
 atom_number = MAX_ATOM_NUMBER
 neighbor_number = NEIGHBOR_NUMBER
 
-hypers = GCNHypers()
-hypers.NUM_EPOCHS = 100
-hypers.NUM_BATCHES = 256
-hypers.BATCH_SIZE = 32
-hypers.SAVE_PERIOD = 10
-hypers.LOSS_FUNCTION = tf.losses.mean_squared_error
-hypers.STRATIFY = None
-hypers.EDGE_DISTANCE = True
-hypers.EDGE_NONBONDED = True
-hypers.EDGE_LONG_BOND = True
-
+hypers = GCNHypersStandard()
+hypers.NUM_EPOCHS = 256
 
 def train_model(name, hypers):
     tf.reset_default_graph()
@@ -62,7 +53,7 @@ for i,e in enumerate(embeds):
     for j,s in enumerate(stacks):
         hypers.STACKS = s
         hypers.ATOM_EMBEDDING_SIZE = e
-        p,l,c,n = train_model('struct-model-9/hypers-{}-{}'.format(e,s), hypers)
+        p,l,c,n = train_model('struct-model-11/hypers-{}-{}'.format(e,s), hypers)
         p = np.array(p)
         l = np.array(l)
         ax = axs[i, j]

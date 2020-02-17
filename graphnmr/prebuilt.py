@@ -27,11 +27,11 @@ class GCNHypersTiny(GCNHypers):
         self.EDGE_NONBONDED = True
         self.EDGE_LONG_BOND = True
         self.STRATIFY = None
-        self.ATOM_EMBEDDING_SIZE =  8
+        self.ATOM_EMBEDDING_SIZE =  16
         self.EDGE_EMBEDDING_SIZE =  2
-        self.EDGE_EMBEDDING_OUT =  1
+        self.EDGE_EMBEDDING_OUT =  2
         self.EDGE_DISTANCE = True
         self.GCN_RESIDUE = True
         self.DROPOUT_RATE = 0.2
         self.STACKS = 3
-        
+        self.LEARNING_RATE = 1e-5

@@ -44,7 +44,7 @@ def train_model(name, hypers, stratify=False):
 
 
 train_model('struct-model-11/tiny', GCNHypersTiny())
-train_model('struct-model-11/standard', GCNHypersStandard())
+#train_model('struct-model-11/standard', GCNHypersStandard())
 hypers = GCNHypersStandard()
 hypers.EDGE_DISTANCE = False
 train_model('struct-model-11/standard-nodist', hypers)
