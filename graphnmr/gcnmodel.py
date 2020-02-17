@@ -440,9 +440,12 @@ class GCNModel:
             plt.title(title + ': RMSD = {:.4f}. MAE = {:.4f} R^2 = {:.4f}. N={}'.format(rmsd,mae, corr**2, N))
             plt.savefig(plot_dir + title + '.png', dpi=300)
             plt.close()
+            return {'corr-coeff': corr, 'R^2': corr**2, 'MAE': mae, 'RMSD': rmsd, 'N': N, 'title': title, 'plot': plot_dir + title + '.png'}
+
+        results = []
 
         # make overall plot
-        plot_fit(labels, predict, class_label, 'overall')
+        results.append(plot_fit(labels, predict, class_label, 'overall'))
 
         # class plots
         os.makedirs(plot_dir + '/class', exist_ok=True)
@@ -453,7 +456,7 @@ class GCNModel:
             p = predict[mask]
             l = labels[mask]
             c = class_label[mask]
-            plot_fit(l, p, c, 'class/' + k)
+            results.append(plot_fit(l, p, c, 'class/' + k))
 
         # name plots
         os.makedirs(plot_dir + '/names', exist_ok=True)
@@ -477,15 +480,15 @@ class GCNModel:
             p = predict[mask]
             l = labels[mask]
             c = class_label[mask]
-            plot_fit(l, p, c, 'names/' + k)
+            results.append(plot_fit(l, p, c, 'names/' + k))
         
         plt.figure(figsize=(5,4))
         plt.hist(np.abs(predict - labels), bins=1000)
         plt.savefig('peak-error.png', dpi=300)
 
         # return top 1 error for convienence
-        top5 = np.quantile(np.abs(predict - labels), q=[0.99])
-        return top5[0]
+        top1 = np.quantile(np.abs(predict - labels), q=[0.99])
+        return top1[0], results
         
     
     def plot_examples(self, atom_number, cutoff, number, feed_dict={}):

@@ -35,19 +35,14 @@ def train_model(name, hypers, stratify=False):
     tf.summary.scalar('learning-rate', hypers.LEARNING_RATE)
     model.build_train()
     if DO_TRAIN:
-        model.run_train({hypers.LEARNING_RATE: 1e-4})
+        model.run_train()
+    model.summarize_eval()
 
-    # Assess fit
-    top1 = model.summarize_eval()
-    print('Model top 1 error', top1)
-    model.plot_examples(MAX_ATOM_NUMBER, top1, 25)
-
-
-train_model('struct-model-11/tiny', GCNHypersTiny())
+#train_model('struct-model-11/tiny', GCNHypersTiny())
 #train_model('struct-model-11/standard', GCNHypersStandard())
 hypers = GCNHypersStandard()
 hypers.EDGE_DISTANCE = False
-train_model('struct-model-11/standard-nodist', hypers)
+#train_model('struct-model-11/standard-nodist', hypers)
 hypers.EDGE_NONBONDED = False
 train_model('struct-model-11/standard-nononbond', hypers)
 
