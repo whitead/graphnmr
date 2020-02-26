@@ -726,12 +726,12 @@ class StructGCNModel(GCNModel):
                 # activate
                 #p1 = tf.print("nlist:", self.nlist, "\n indicies:", full_edge_indices, "\nfeatures:", self.feature_mats[-1], "\nsliced:", sliced_features, summarize=1000)
                 #with tf.control_dependencies([p1]):
+                if self.hypers.BATCH_NORM:
+                    reduced = tf.keras.layers.BatchNormalization()(reduced)
                 if self.hypers.GCN_BIAS:
                     out = self.hypers.GCN_ACTIVATION(reduced + b)
                 else:
                     out = self.hypers.GCN_ACTIVATION(reduced)
-                if self.hypers.BATCH_NORM:
-                    out = tf.keras.layers.BatchNormalization()(out)
                 if self.hypers.RESIDUE:
                     self.feature_mats.append(out + self.feature_mats[-1])
                 else:
