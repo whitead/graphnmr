@@ -1,3 +1,4 @@
 data/*.tfrecord filter=lfs diff=lfs merge=lfs -text
 *.tfrecord filter=lfs diff=lfs merge=lfs -text
 *.gsd filter=lfs diff=lfs merge=lfs -text
+data/record_info.txt filter=lfs diff=lfs merge=lfs -text
