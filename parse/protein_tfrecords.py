@@ -54,12 +54,14 @@ def process_corr(path, debug):
                         mapping_mode = True
                     except:
                         mapping_mode = False
-
                 if mapping_mode:
                     for i in range(len(sline) // 3):
-                        pid = int(sline[i * 3]) - 1
+                        pid = int(sline[i * 3 + 0]) - 1
+                        # why?
+                        if pid < 0:
+                            break
                         while len(sequence) <= pid:
-                            sequence.append('XXX')
+                            sequence.append('XXX')                        
                         sequence[pid] = sline[i * 3 + 2]
 
                 else:
@@ -72,36 +74,48 @@ def process_corr(path, debug):
     if len(peaks) == 0:
         raise ValueError('Could not parse file')
 
+    # sequence map -> key is residue index, output is peak index 
     for i,p in enumerate(peaks):
-        sequence_map[int(p['index']) - 1] = i
+        #sequence_map[int(p['index']) - 1] = i
+        sequence_map[i] = i
+        if debug:
+            print(i,p, sequence[int(p['index']) - 1])
+            if p['name'] != sequence[i]:
+                raise ValueError()
 
     return peaks,sequence_map,sequence
 
-def align(seq1, seq2):
+def align(seq1, seq2, debug=False):
     flat1 = seq.seq1(''.join(seq1)).replace('X', '-')
     flat2 = seq.seq1(''.join(seq2)).replace('X', '-')
     flats = [flat1, flat2]
     # aligning 2 to 1 seems to give better results
-    align = pairwise2.align.localxx(flat2, flat1, one_alignment_only=True)
+    align = pairwise2.align.localxs(flat2, flat1, -1000, -1000, one_alignment_only=True)
     start = align[0][3]
     offset = [0,0]
     # compute how many gaps had to be inserted at beginning to align
     for i in range(2):
+        assert len(align[0][0]) == len(align[0][1])
         for j in range(len(align[0][0])):
             # account for the fact that 2 and 1 are switched in alignment results
+            # if there is a gap in 1
             if align[0][(i + 1) % 2][j] == '-':
+                # but not the other
                 if flats[i][j - offset[i]] != '-':
                     offset[i] += 1
             else:
                 break
+    if debug:
+        print(pairwise2.format_alignment(flat2[offset[0]:], flat1[offset[1]:], 10, 0, len(flat1) - offset[1]))
     return -offset[0], -offset[1]
+    #return 0, start
 
 # NN is not NEIGHBOR_NUMBer
 # reason for difference is we don't want 1,3 or 1,4, etc neighbors on the list
 def process_pdb(path, corr_path, chain_id, max_atoms,
                 gsd_file, embedding_dicts, NN, nlist_model,
                 keep_residues=[-1, 1],
-                debug=False, units = unit.nanometer, frame_number=3, model_index=0,
+                debug=True, units = unit.nanometer, frame_number=3, model_index=0,
                 log_file=None):
     # load pdb
     pdb = app.PDBFile(path)
@@ -113,7 +127,13 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
     # check for weird/null chain
     if chain_id == '_':
         chain_id = 'A'
-    residues = list(filter(lambda r: r.chain.id == chain_id, pdb.topology.residues()))
+    # sometimes chains have extra characters (why?) 
+    residues = list(filter(lambda r: r.chain.id[0] == chain_id, pdb.topology.residues()))
+    if len(residues) == 0:
+        if debug:
+            raise ValueError('Failed to find requested chain ',chain_id)
+
+
     pdb_offset, seq_offset = None, None
 
     # from pdb residue index to our aligned residue index
@@ -153,15 +173,44 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                 print('Exceeded number of atoms for building nlist (change this if you have big GPU memory')
             break
         # remake residue list each time so they have correct atom ids
-        residues = list(filter(lambda r: r.chain.id == chain_id, fixer.topology.residues()))
+        residues = list(filter(lambda r: r.chain.id[0] == chain_id, fixer.topology.residues()))
         # check alignment once
         if pdb_offset is None:
             # create sequence from residues
             pdb_seq = ['XXX'] * max([int(r.id) + 1 for r in residues])
             for r in residues:
-                pdb_seq[int(r.id)] = r.name
-            pdb_offset, seq_offset = align(pdb_seq, peak_seq)
-
+                rid = int(r.id)
+                if rid >= 0:
+                    pdb_seq[int(r.id)] = r.name
+            print('pdb_seq', pdb_seq)
+            print('peak_seq', peak_seq)
+            pdb_offset, seq_offset = align(pdb_seq, peak_seq, debug)
+            if debug:
+                print('pdb_offset', pdb_offset)
+                print('seq_offset', seq_offset)
+                # now check alignment - rarely perfect
+                saw_one = False
+                aligned = 0
+                for i in range(len(residues)):
+                    segid = int(residues[i].id) + pdb_offset
+                    saw_one = pdb_seq[segid] == residues[i].name
+                    if not saw_one:                        
+                        print('Mismatch (A) at position {} ({}). {} != {}'.format(segid, residues[i].id, pdb_seq[segid], residues[i].name))
+                        continue
+                    if segid + seq_offset in sequence_map:
+                        peakid = sequence_map[segid + seq_offset]
+                        saw_one = pdb_seq[segid] == peak_seq[segid + seq_offset]
+                        if not saw_one:
+                            print('Mismatch (B) at position {}. pdb seq: {}, peak seq: {}'.format(segid, peak_seq[segid + seq_offset], pdb_seq[peakid]))
+                            continue
+                        saw_one = peak_data[peakid]['name'] == residues[i].name
+                        if not saw_one:
+                            print('Mismatch (C) at position {}. peak seq: {}, peak data: {}, residue: {}'.format(segid, i, peak_seq[segid + seq_offset], peak_data[peakid]['name'], residues[i].name))
+                            continue
+                        aligned += 1
+                if aligned < 5:
+                    raise ValueError('Could not find more than 5 aligned residues, very unusual')
+                    
             # create resiud look-up from atom index
             for i,r in enumerate(residues):
                 for a in r.atoms():
@@ -218,7 +267,6 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                 if segid + seq_offset not in sequence_map:
                     if debug:
                         print('Could not find residue index', rj, ': ', residue, 'in the sequence map. Its index is', segid + seq_offset, 'ri: ', ri)
-                        print(sequence_map)
                     success = False
                     break
                 peak_id = sequence_map[segid + seq_offset]
@@ -343,6 +391,8 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                         print(nlist[index, :, :])
                         exit()
             if not success:
+                if debug:
+                    raise RuntimeError()
                 continue
             if gsd_file is not None:
                 snapshot = write_record_traj(positions, atoms, mask, nlist, peaks, embedding_dicts['class'][residues[ri].name], names, embedding_dicts)
@@ -356,6 +406,12 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
 
 
 PROTEIN_DIR = sys.argv[1]
+# Optional filter to only consider certain pdbs
+PDB_ID_FILTER = None
+if len(sys.argv) == 3:
+    PDB_ID_FILTER = []
+    with open(sys.argv[2], 'r') as f:
+        PDB_ID_FILTER = set([x.split()[0] for x in f.readlines()])
 WRITE_FRAG_PERIOD = 25
 
 # load embedding information
@@ -384,8 +440,10 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
         NN = NEIGHBOR_NUMBER * 8
         nm = nlist_model(NN, sess)
         pbar = tqdm.tqdm(items)
-        rinfo.write('PDB Corr Chain Count GSD_id Model_id Frame_id Residue_id')
+        rinfo.write('PDB Corr Chain Count GSD_id Model_id Frame_id Residue_id\n')
         for index, entry in enumerate(pbar):
+            if PDB_ID_FILTER is not None and entry['pdb_id'] not in PDB_ID_FILTER:
+                continue
             try:
                 result, p, n, pc = process_pdb(PROTEIN_DIR + entry['pdb_file'], PROTEIN_DIR + entry['corr'], entry['chain'],
                                         gsd_file=gsd_file,
@@ -393,6 +451,8 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
                                                nlist_model=nm, model_index=index, log_file=rinfo)
                 pbar.set_description('Processed PDB {} ({}). Successes {} ({:.2}). Total Records: {}, Peaks: {}. Wrote frags: {}'.format(
                                    entry['pdb_id'], entry['corr'], n, p, records, peaks, index % WRITE_FRAG_PERIOD == 0))
+                if len(result) == 0:
+                    raise ValueError('Failed to find any records in' +  entry['pdb_id'], entry['corr'])
                 for r in result:
                     writer.write(r.SerializeToString())
                 records += n
@@ -401,5 +461,7 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
                 save_embeddings(embedding_dicts, 'embeddings.pb')
             except (ValueError, IndexError) as e:
                 print(traceback.format_exc())
+                print('Failed in ' +  entry['pdb_id'], entry['corr'])
                 pbar.set_description('Failed in ' +  entry['pdb_id'], entry['corr'])
+                raise e
 print('wrote ', records)
