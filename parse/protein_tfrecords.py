@@ -75,13 +75,26 @@ def process_corr(path, debug):
         raise ValueError('Could not parse file')
 
     # sequence map -> key is residue index, output is peak index 
+    # want it to start from 0, since we'll get offset with alignment
+    # this is necessary in case there are gaps
+    min_id = min([int(p['index']) for p in peaks])
     for i,p in enumerate(peaks):
-        #sequence_map[int(p['index']) - 1] = i
-        sequence_map[i] = i
+        sequence_map[int(p['index']) - min_id] = i
+        continue
         if debug:
-            print(i,p, sequence[int(p['index']) - 1])
-            if p['name'] != sequence[i]:
+            print(sequence)
+            print([p['name'] for p in peaks])
+            print(i,p, sequence[int(p['index']) - min_id], p['name'])
+            if p['name'] != sequence[int(p['index']) - min_id]:
                 raise ValueError()
+
+    # key in sequence_map should be index in sequence, output is peak index
+    # New approach
+    sequence = []
+    for i in range(max(sequence_map.keys()) + 1):
+        sequence.append('XXX')
+        if i in sequence_map:
+            sequence[i] = peaks[sequence_map[i]]['name']
 
     return peaks,sequence_map,sequence
 
@@ -168,7 +181,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
         # get new positions
         frame = fixer.positions
         num_atoms = len(frame)
-        if num_atoms > 10000:
+        if num_atoms > 100000:
             if debug:
                 print('Exceeded number of atoms for building nlist (change this if you have big GPU memory')
             break
@@ -182,12 +195,14 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                 rid = int(r.id)
                 if rid >= 0:
                     pdb_seq[int(r.id)] = r.name
-            print('pdb_seq', pdb_seq)
-            print('peak_seq', peak_seq)
+            if debug:
+                print('pdb_seq', pdb_seq)
+                print('peak_seq', peak_seq)
             pdb_offset, seq_offset = align(pdb_seq, peak_seq, debug)
             if debug:
                 print('pdb_offset', pdb_offset)
                 print('seq_offset', seq_offset)
+                print(sequence_map)
                 # now check alignment - rarely perfect
                 saw_one = False
                 aligned = 0
@@ -199,6 +214,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                         continue
                     if segid + seq_offset in sequence_map:
                         peakid = sequence_map[segid + seq_offset]
+                        print(segid, segid + seq_offset, len(pdb_seq), len(peak_seq))
                         saw_one = pdb_seq[segid] == peak_seq[segid + seq_offset]
                         if not saw_one:
                             print('Mismatch (B) at position {}. pdb seq: {}, peak seq: {}'.format(segid, peak_seq[segid + seq_offset], pdb_seq[peakid]))
