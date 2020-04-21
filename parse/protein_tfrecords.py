@@ -128,7 +128,7 @@ def align(seq1, seq2, debug=False):
 def process_pdb(path, corr_path, chain_id, max_atoms,
                 gsd_file, embedding_dicts, NN, nlist_model,
                 keep_residues=[-1, 1],
-                debug=True, units = unit.nanometer, frame_number=3, model_index=0,
+                debug=False, units = unit.nanometer, frame_number=3, model_index=0,
                 log_file=None):
     # load pdb
     pdb = app.PDBFile(path)
@@ -157,7 +157,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
     # select a random set of frames for generating data without replacement
     frame_choices = random.sample(range(0, pdb.getNumFrames()), k=min(pdb.getNumFrames(), frame_number))
     for fi in frame_choices:
-        successes = 0
+        peak_successes = set()
         # clean up individual frame
         frame = pdb.getPositions(frame=fi)
         # have to fix at each frame since inserted atoms may change
@@ -199,6 +199,8 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                 print('pdb_seq', pdb_seq)
                 print('peak_seq', peak_seq)
             pdb_offset, seq_offset = align(pdb_seq, peak_seq, debug)
+            #TOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDOOOOOOOOOOOOOOOOOOOOOOO
+            pdb_offset = 0
             if debug:
                 print('pdb_offset', pdb_offset)
                 print('seq_offset', seq_offset)
@@ -316,6 +318,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                         if atom.name[:3] in peak_data[peak_id]:
                             peaks[index] = peak_data[peak_id][atom.name[:3]]
                             peak_count += 1
+                            peak_successes.add(peak_id)
                         else:
                             mask[index] = 0
                     index += 1
@@ -416,9 +419,8 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                 gsd_file.append(snapshot)
             result.append(make_tfrecord(atoms, mask, nlist, peaks, embedding_dicts['class'][residues[ri].name], names, indices=np.array([model_index, fi, int(residues[ri].id)], dtype=np.int64)))
             if log_file is not None:
-                log_file.write('{} {} {} {} {} {} {} {}\n'.format(path.split('/')[-1], corr_path.split('/')[-1], chain_id, successes, len(gsd_file), model_index, fi, residues[ri].id))
-            successes += 1
-    return result, successes / len(peak_data), len(result), peak_count
+                log_file.write('{} {} {} {} {} {} {} {}\n'.format(path.split('/')[-1], corr_path.split('/')[-1], chain_id, len(peak_successes), len(gsd_file), model_index, fi, residues[ri].id))
+    return result, len(peak_successes) / len(peak_data), len(result), peak_count
 
 
 PROTEIN_DIR = sys.argv[1]
@@ -458,7 +460,7 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
         pbar = tqdm.tqdm(items)
         rinfo.write('PDB Corr Chain Count GSD_id Model_id Frame_id Residue_id\n')
         for index, entry in enumerate(pbar):
-            if PDB_ID_FILTER is not None and entry['pdb_id'] not in PDB_ID_FILTER:
+            if PDB_ID_FILTER is not None and entry['pdb_id'] in PDB_ID_FILTER:
                 continue
             try:
                 result, p, n, pc = process_pdb(PROTEIN_DIR + entry['pdb_file'], PROTEIN_DIR + entry['corr'], entry['chain'],
