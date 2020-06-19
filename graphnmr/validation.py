@@ -17,6 +17,8 @@ def load_records(filename, batch_size=1):
             'index': record_index}
 
 def peak_summary(data, embeddings, nbins, hist_range, predict_atom='H'):
+    '''Returns summary statistics of peaks
+    '''
     mask = tf.cast(data['mask'] > 0, tf.float32) * tf.cast(tf.math.equal(data['features'], embeddings['atom'][predict_atom]), tf.float32)
     hist = tf.histogram_fixed_width(data['peaks'] * mask, hist_range, nbins)
     run_ops = []
@@ -38,6 +40,8 @@ def peak_summary(data, embeddings, nbins, hist_range, predict_atom='H'):
     return running_min, running_max, running_hist, count, run_ops
 
 def validate_peaks(filename, embeddings, batch_size=32):
+    '''Checks for peaks beyond in extreme ranges and reports them
+    '''
     tf.reset_default_graph()
     init_data_op, data = load_records(filename, batch_size=batch_size)
     nbins = int(1e6)
@@ -70,6 +74,8 @@ def validate_peaks(filename, embeddings, batch_size=32):
 
 
 def validate_embeddings(filename, embeddings, batch_size=32):
+    '''Ensures that the records do not contain records not found in embeddings
+    '''
     tf.reset_default_graph()
     init_data_op, data = load_records(filename, batch_size=batch_size)
     assert_ops = []
@@ -93,6 +99,8 @@ def validate_embeddings(filename, embeddings, batch_size=32):
 
 
 def count_names(filename, embeddings, batch_size=32):
+    '''Counts the number of records for each name
+    '''
     tf.reset_default_graph()
     init_data_op, data = load_records(filename, batch_size=batch_size)    
     name_counts = [0 for _ in range(len(embeddings['name']))]
@@ -112,3 +120,40 @@ def count_names(filename, embeddings, batch_size=32):
             print('Dataset complete')
             pass
     return np.array(name_counts)
+
+def write_peak_labels(filename, embeddings, record_info, output, batch_size=32):
+    '''Writes peak labels from records with embedding labels
+    '''
+    
+    # get look-ups for pdbs
+    with open(record_info, 'r') as f:
+        rinfo_table = np.loadtxt(f, skiprows=1, dtype='str')
+        print(rinfo_table.shape)
+        # convert to dict
+        # key is model_id, value is pdb id
+        rinfo = {int(mid): pdb.split('.pdb')[0] for pdb, mid in zip(rinfo_table[:,0], rinfo_table[:,-3])}
+    # look-ups for atom and res
+    resdict = {v: k for k,v in embeddings['class'].items()}
+    namedict = {v: k for k,v in embeddings['name'].items()}
+
+    tf.reset_default_graph()
+    init_data_op, data = load_records(filename, batch_size=batch_size)    
+
+    # Now write out data
+    with tf.Session() as sess, open(output, 'w') as f:
+        sess.run(init_data_op)
+        try:
+            count = 0
+            while True:
+                mask, peaks, name, c, index = sess.run([data['mask'], data['peaks'], data['name'], data['class'], data['index']])
+                indices = np.nonzero(mask)
+                for b,i in zip(indices[0], indices[1]):
+                    p = rinfo[index[b, 0] ]
+                    r = resdict[c[b, 0]]
+                    n = namedict[name[b, i]]
+                    f.write(p, *r.split('-'), n, peaks[b, i])
+        except tf.errors.OutOfRangeError:
+            print('Dataset complete')
+            pass
+    return 
+    

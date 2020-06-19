@@ -181,7 +181,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
         # get new positions
         frame = fixer.positions
         num_atoms = len(frame)
-        if num_atoms > 100000:
+        if num_atoms > 10000:
             if debug:
                 print('Exceeded number of atoms for building nlist (change this if you have big GPU memory')
             break
@@ -199,7 +199,8 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                 print('pdb_seq', pdb_seq)
                 print('peak_seq', peak_seq)
             pdb_offset, seq_offset = align(pdb_seq, peak_seq, debug)
-            #TOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDOOOOOOOOOOOOOOOOOOOOOOO
+            #TOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDOOOOOOOOOOOOOOOOOOOOOOO?????
+            # Maybe it's ok
             pdb_offset = 0
             if debug:
                 print('pdb_offset', pdb_offset)
@@ -242,7 +243,8 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
             # we build up fragment by getting residues around us, both in chain
             # and those within a certain distance of us
             rmin = max(0,ri + keep_residues[0])
-            rmax = min(len(residues), ri + keep_residues[1] + 1)
+            # have to +1 here (and not in range) to get min to work :)
+            rmax = min(len(residues), ri + keep_residues[1] + 1) 
             # do we have any residues to consider?
             success = rmax - rmin > 0
 
@@ -259,7 +261,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                             print('Neighboring residue in different chain, skipping')
                         break
             atoms = np.zeros((max_atoms), dtype=np.int64)
-            # we will put dummy atom at end that fills-up special neighbors
+            # we will put dummy atom at end to keep bond counts the same by bonding to it
             atoms[-1] = embedding_dicts['atom']['Z']
             mask = np.zeros( (max_atoms), dtype=np.float)
             bonds = np.zeros( (BOND_MAX, max_atoms, max_atoms), dtype=np.int64)
@@ -444,7 +446,7 @@ items = list(protein_data.values())
 results = []
 records = 0
 peaks = 0
-# turn off GPU for more memory
+# turn off GPU for more memory if desired
 config = tf.ConfigProto(
        # device_count = {'GPU': 0}
     )
@@ -454,7 +456,7 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
     with tf.Session(config=config) as sess,\
         gsd.hoomd.open(name='protein_frags.gsd', mode='wb') as gsd_file,\
         open('record_info.txt', 'w') as rinfo:
-        # multiply x 8 in case we have some 1,3, or 1,4 neighbors that we don't want
+        # multiply x 6 in case we have some 1,3, or 1,4 neighbors that we don't want
         NN = NEIGHBOR_NUMBER * 8
         nm = nlist_model(NN, sess)
         pbar = tqdm.tqdm(items)
@@ -469,7 +471,8 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
                                                nlist_model=nm, model_index=index, log_file=rinfo)
                 pbar.set_description('Processed PDB {} ({}). Successes {} ({:.2}). Total Records: {}, Peaks: {}. Wrote frags: {}'.format(
                                    entry['pdb_id'], entry['corr'], n, p, records, peaks, index % WRITE_FRAG_PERIOD == 0))
-                if len(result) == 0:
+                # turned off for now
+                if False and len(result) == 0:
                     raise ValueError('Failed to find any records in' +  entry['pdb_id'], entry['corr'])
                 for r in result:
                     writer.write(r.SerializeToString())
@@ -481,5 +484,5 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
                 print(traceback.format_exc())
                 print('Failed in ' +  entry['pdb_id'], entry['corr'])
                 pbar.set_description('Failed in ' +  entry['pdb_id'], entry['corr'])
-                raise e
+                #raise e
 print('wrote ', records)
