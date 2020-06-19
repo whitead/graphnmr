@@ -151,7 +151,7 @@ def write_peak_labels(filename, embeddings, record_info, output, batch_size=32):
                     p = rinfo[index[b, 0] ]
                     r = resdict[c[b, 0]]
                     n = namedict[name[b, i]]
-                    f.write(p, *r.split('-'), n, peaks[b, i])
+                    f.write(' '.join([p, str(index[b,2]), *n.split('-'), str(peaks[b, i]), '\n']))
         except tf.errors.OutOfRangeError:
             print('Dataset complete')
             pass
