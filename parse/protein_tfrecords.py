@@ -181,9 +181,9 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
         # get new positions
         frame = fixer.positions
         num_atoms = len(frame)
-        if num_atoms > 10000:
+        if num_atoms > 20000:
             if debug:
-                print('Exceeded number of atoms for building nlist (change this if you have big GPU memory')
+                print('Exceeded number of atoms for building nlist (change this if you have big GPU memory) in frame {} in pdb {}'.format(fi, path))
             break
         # remake residue list each time so they have correct atom ids
         residues = list(filter(lambda r: r.chain.id[0] == chain_id, fixer.topology.residues()))
@@ -250,6 +250,8 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
 
             consider = set(range(rmin, rmax))
             # now grab spatial neighbor residues
+            # NOTE: I checked this by hand a lot
+            # Believe this code.
             for a in residues[ri].atoms():
                 for ni in range(NN):
                     j = int(frame_nlist[a.index, ni, 1])
@@ -287,6 +289,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                 if segid + seq_offset not in sequence_map:
                     if debug:
                         print('Could not find residue index', rj, ': ', residue, 'in the sequence map. Its index is', segid + seq_offset, 'ri: ', ri)
+                        print('We are considering', consider)
                     success = False
                     break
                 peak_id = sequence_map[segid + seq_offset]
@@ -327,7 +330,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                     # -1 for dummy atom which is stored at end
                     if index == max_atoms - 2:
                         if debug:
-                            print('Not enough space for all atoms')
+                            print('Not enough space for all atoms in ri', ri)
                         success = False
                         break
                 if ri == rj and sum(mask) == 0:
@@ -456,13 +459,15 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
     with tf.Session(config=config) as sess,\
         gsd.hoomd.open(name='protein_frags.gsd', mode='wb') as gsd_file,\
         open('record_info.txt', 'w') as rinfo:
-        # multiply x 6 in case we have some 1,3, or 1,4 neighbors that we don't want
-        NN = NEIGHBOR_NUMBER * 8
+        # add a bit in case we have some 1,3, or 1,4 neighbors that we don't want
+        # TODO: We have been discarding 1,3 and 1,4 (ignoring BOND_MAX)
+        # So I've reduced this accordingly (max valence = 4)
+        NN = NEIGHBOR_NUMBER + 4
         nm = nlist_model(NN, sess)
         pbar = tqdm.tqdm(items)
         rinfo.write('PDB Corr Chain Count GSD_id Model_id Frame_id Residue_id\n')
         for index, entry in enumerate(pbar):
-            if PDB_ID_FILTER is not None and entry['pdb_id'] in PDB_ID_FILTER:
+            if PDB_ID_FILTER is not None and entry['pdb_id'] not in PDB_ID_FILTER:
                 continue
             try:
                 result, p, n, pc = process_pdb(PROTEIN_DIR + entry['pdb_file'], PROTEIN_DIR + entry['corr'], entry['chain'],
