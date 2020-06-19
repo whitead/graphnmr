@@ -249,6 +249,10 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
             success = rmax - rmin > 0
 
             consider = set(range(rmin, rmax))
+
+            # Used to indicate an atom should be included from a different residue
+            marked = [False for _ in range(len(frame))]
+
             # now grab spatial neighbor residues
             # NOTE: I checked this by hand a lot
             # Believe this code.
@@ -257,6 +261,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                     j = int(frame_nlist[a.index, ni, 1])
                     try:
                         consider.add(residue_lookup[j])
+                        marked[j] = True
                     except KeyError as e:
                         success = False
                         if debug:
@@ -296,6 +301,8 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                 #peak_id = segid
                 if peak_id >= len(peak_data):
                     success = False
+                    if debug:
+                        print('peakd id is outside of peak range')
                     break
                 # only check for residue we actually care about
                 if ri == rj and residue.name != peak_data[peak_id]['name']:
@@ -304,6 +311,9 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                     success = False
                     break
                 for atom in residue.atoms():
+                    # Make sure atom is in residue or neighbor of residue atom
+                    if ri != rj and not marked[atom.index]:
+                        continue
                     mask[index] = float(ri == rj)
                     atom_name = residue.name + '-' + atom.name
                     if atom_name not in embedding_dicts['name']:
@@ -359,6 +369,9 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
             for rj in consider:
                 residue = residues[rj]
                 for a in residue.atoms():
+                    # Make sure atom is in residue or neighbor of residue atom
+                    if ri != rj and not marked[a.index] :
+                        continue
                     index = rmap[a.index]
                     # convert to local indices and filter neighbors
                     n_index = 0
@@ -467,7 +480,7 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
         pbar = tqdm.tqdm(items)
         rinfo.write('PDB Corr Chain Count GSD_id Model_id Frame_id Residue_id\n')
         for index, entry in enumerate(pbar):
-            if PDB_ID_FILTER is not None and entry['pdb_id'] not in PDB_ID_FILTER:
+            if PDB_ID_FILTER is not None and entry['pdb_id'] in PDB_ID_FILTER:
                 continue
             try:
                 result, p, n, pc = process_pdb(PROTEIN_DIR + entry['pdb_file'], PROTEIN_DIR + entry['corr'], entry['chain'],
