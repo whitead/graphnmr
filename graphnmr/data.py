@@ -96,11 +96,10 @@ def data_parse(proto):
 
 def create_datasets(filenames, skips):
     datasets = []
-    if skips is None:
-        return tf.data.TFRecordDataset(filenames, compression_type='GZIP').map(data_parse)
     for f,s in zip(filenames, skips):
         d = tf.data.TFRecordDataset([f], compression_type='GZIP').map(data_parse)
         # TODO: solve this in the data (?)
+        # Think we did
         #d.filter(lambda *args: tf.reduce_all(tf.is_finite(args[2])))
         datasets.append( (d.skip(s), d.take(s)) )
     return datasets

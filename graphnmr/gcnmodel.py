@@ -105,9 +105,9 @@ class GCNModel:
 
         self.build(atom_inputs, bond_inputs, *args, **kw_args)
 
-    def build_from_dataset(self, filename, *args, **kw_args):
+    def build_from_dataset(self, filename, gzip, *args, **kw_args):
         
-        tf_dataset = tf.data.TFRecordDataset([filename]).map(data_parse).batch(self.hypers.BATCH_SIZE)
+        tf_dataset = tf.data.TFRecordDataset([filename], compression_type='GZIP' if gzip else None).map(data_parse).batch(self.hypers.BATCH_SIZE)
 
         # Now we make an iterator which allows us to view different batches of data
         iterator = tf.data.Iterator.from_structure(tf_dataset.output_types, tf_dataset.output_shapes)
@@ -263,7 +263,8 @@ class GCNModel:
 
         with tf.Session() as sess:
             self.load(sess)
-            sess.run(self.test_init_op)
+            if self.using_dataset:
+                sess.run(self.test_init_op)
             # do try/except to exhaust test data
             # hope it's not repeated!
             try:
@@ -401,23 +402,23 @@ class GCNModel:
     def build(self, features, adjacency, atom_number):
         raise NotImplementedError()
 
-    def summarize_eval(self, feed_dict={}, rel_plot_dir=None):
+    def summarize_eval(self, feed_dict={}, test_data=False):
     
         
         import matplotlib.pyplot as plt
         import numpy as np
         import os
 
-        predict, labels, class_label, names = self.eval_train(feed_dict)
+        predict, labels, class_label, names = self.eval_train(feed_dict) 
         predict, labels, class_label, names = np.array(predict), np.array(labels), np.array(class_label), np.array(names)
 
         # do clipping we do for training
         labels = np.clip(labels, 0, self.hypers.PEAK_CLIP)
 
-        if rel_plot_dir is None:
+        if not test_data:
             plot_dir = self.model_path + '/plots/'
         else:
-            plot_dir = os.path.join(self.model_path, rel_plot_dir)
+            plot_dir = self.model_path + '/plots-test/'
         os.makedirs(plot_dir, exist_ok=True)
         def plot_fit(fit_labels, fit_predict, fit_class, title):
             print('plotting', title)

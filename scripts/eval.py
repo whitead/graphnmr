@@ -32,7 +32,7 @@ model_name = 'nmrstruct-model-10/baseline-3000'
 print('Preparing model', model_name)
 tf.reset_default_graph()
 model = StructGCNModel(SCRATCH + model_name, embedding_dicts, hypers)
-model.build_from_dataset(sys.argv[3], atom_number=atom_number, neighbor_size=neighbor_number)
+model.build_from_dataset(sys.argv[3], gzip=False, atom_number=atom_number, neighbor_size=neighbor_number)
 results = model.eval()
 with open('evaluation.pb', 'wb') as f:
     pickle.dump(results, f)

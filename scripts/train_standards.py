@@ -38,8 +38,8 @@ def train_model(name, hypers, weighted=True):
     model.summarize_eval()
 
 #train_model('struct-model-11/tiny', GCNHypersTiny())
-#train_model('struct-model-11/standard', GCNHypersStandard())
-#hypers = GCNHypersStandard()
+train_model('struct-model-12/standard', GCNHypersStandard())
+hypers = GCNHypersStandard()
 #hypers.EDGE_DISTANCE = False
 #train_model('struct-model-11/standard-nodist', hypers)
 #hypers.EDGE_NONBONDED = False
