@@ -23,7 +23,7 @@ neighbor_number = NEIGHBOR_NUMBER
 
 skips = [25000]
 
-def plot_model(name, hypers, test=True):
+def plot_model(name, hypers, test=True, progressive=False):
     print('Results for model ', name)
     tf.reset_default_graph()
     model = StructGCNModel(SCRATCH + name, embedding_dicts, hypers)
@@ -45,10 +45,18 @@ def plot_model(name, hypers, test=True):
         for r in results:
             print(fs.format(*[r[k] for k in keys]))
             f.write(fs.format(*[r[k] for k in keys]) + '\n')
+    # progressive plots
+    for i in range(1000):
+        try:
+            model.summarize_eval(test_data=test, checkpoint_index=i, classes=False)
+        except tf.errors.OutOfRangeError as e:
+            break
+        
 
 
 #plot_model(model_dir + '/tiny', GCNHypersTiny())
-plot_model(model_dir + '/standard', GCNHypersStandard())
+plot_model(model_dir + '/standard', GCNHypersStandard(), progressive=True)
+plot_model(model_dir + '/standard', GCNHypersStandard(), False, progressive=True)
 hypers10 = GCNHypersStandard()
 hypers10.GCN_ACTIVATION = tf.keras.layers.LeakyReLU(0.1)
 #plot_model('struct-model-10/baseline-3000', hypers10)

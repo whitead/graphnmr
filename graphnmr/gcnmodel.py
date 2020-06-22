@@ -129,9 +129,15 @@ class GCNModel:
         return {**fd, self.dropout_rate:self.hypers.DROPOUT_RATE if training else 0}
 
 
-    def load(self, sess):
+    def load(self, sess, i=-1):
         saver = tf.train.Saver()
-        checkpoint = tf.train.latest_checkpoint(self.model_path)
+        if i < 0:
+            checkpoint = tf.train.latest_checkpoint(self.model_path)
+        else:
+            checkpoints = tf.train.get_checkpoint_state(self.model_path).all_model_checkpoint_paths
+            if i >= len(checkpoints):
+                raise tf.errors.OutOfRangeError('Exhausted checkpoints')
+            checkpoint = checkpoints[i]
         step = int(checkpoint.split('/')[-1].split('.')[-1].split('-')[-1])
         print('Restoring checkpoint {} @ step {}'.format(checkpoint, step))
         saver.restore(sess, checkpoint)
@@ -253,7 +259,7 @@ class GCNModel:
             print('\t', k, c / sum(self.test_counts), ct / sum(self.train_counts))
 
 
-    def eval_train(self, feed_dict={}):
+    def eval_train(self, feed_dict={}, checkpoint_index=-1):
         predict = []
         out_labels = []
         out_class = []
@@ -262,7 +268,7 @@ class GCNModel:
         saver = tf.train.Saver()
 
         with tf.Session() as sess:
-            self.load(sess)
+            self.load(sess, checkpoint_index)
             if self.using_dataset:
                 sess.run(self.test_init_op)
             # do try/except to exhaust test data
@@ -402,14 +408,14 @@ class GCNModel:
     def build(self, features, adjacency, atom_number):
         raise NotImplementedError()
 
-    def summarize_eval(self, feed_dict={}, test_data=False):
+    def summarize_eval(self, feed_dict={}, test_data=False, checkpoint_index=-1, classes=True):
     
         
         import matplotlib.pyplot as plt
         import numpy as np
         import os
 
-        predict, labels, class_label, names = self.eval_train(feed_dict) 
+        predict, labels, class_label, names = self.eval_train(feed_dict, checkpoint_index) 
         predict, labels, class_label, names = np.array(predict), np.array(labels), np.array(class_label), np.array(names)
 
         # do clipping we do for training
@@ -419,6 +425,10 @@ class GCNModel:
             plot_dir = self.model_path + '/plots/'
         else:
             plot_dir = self.model_path + '/plots-test/'
+        if checkpoint_index == -1:
+            plot_suffix = '.png'
+        else:
+            plot_suffix = '{:04d}.png'.format(checkpoint_index)
         os.makedirs(plot_dir, exist_ok=True)
         def plot_fit(fit_labels, fit_predict, fit_class, title):
             print('plotting', title)
@@ -439,9 +449,9 @@ class GCNModel:
             plt.ylim(0, mmax)
             plt.xlabel('Measured Shift [ppm]')
             plt.ylabel('Predicted Shift [ppm]')
-            plt.savefig(plot_dir + title + '-nostats.png', dpi=300)
-            plt.title(title + ': RMSD = {:.4f}. MAE = {:.4f} R^2 = {:.4f}. N={}'.format(rmsd,mae, corr**2, N))
-            plt.savefig(plot_dir + title + '.png', dpi=300)
+            plt.savefig(plot_dir + title + '-nostats' + plot_suffix, dpi=300)
+            plt.title(title + ': RMSD = {:.4f}. MAE = {:.4f} R^2 = {:.4f}. N={}'.format(rmsd,mae, corr**2, N), fontdict={'fontsize': 8})
+            plt.savefig(plot_dir + title + plot_suffix, dpi=300)
             plt.close()
             return {'corr-coeff': corr, 'R^2': corr**2, 'MAE': mae, 'RMSD': rmsd, 'N': N, 'title': title, 'plot': plot_dir + title + '.png'}
 
@@ -451,43 +461,44 @@ class GCNModel:
         results.append(plot_fit(labels, predict, class_label, 'overall'))
 
         # class plots
-        os.makedirs(plot_dir + '/class', exist_ok=True)
-        for k,v in self.embedding_dicts['class'].items():
-            mask = class_label == v
-            if np.sum(mask) == 0:
-                continue
-            p = predict[mask]
-            l = labels[mask]
-            c = class_label[mask]
-            results.append(plot_fit(l, p, c, 'class/' + k))
+        if classes:
+         os.makedirs(plot_dir + '/class', exist_ok=True)
+         for k,v in self.embedding_dicts['class'].items():
+             mask = class_label == v
+             if np.sum(mask) == 0:
+                 continue
+             p = predict[mask]
+             l = labels[mask]
+             c = class_label[mask]
+             results.append(plot_fit(l, p, c, 'class/' + k))
 
-        # name plots
-        os.makedirs(plot_dir + '/names', exist_ok=True)
-        # we want to merge across all residues.
-        resnames = {}
-        for k,v in self.embedding_dicts['name'].items():
-            sp = k.split('-')
-            n = sp[0]
-            if len(sp) > 1:
-                n = sp[1]
-            if n in resnames:
-                resnames[n].append(v)
-            else:
-                resnames[n] = [v]
-        for k, v in resnames.items():
-            mask = names == v[0]
-            for vi in v[1:]:
-                mask |= names == vi
-            if np.sum(mask) < 10:
-                continue
-            p = predict[mask]
-            l = labels[mask]
-            c = class_label[mask]
-            results.append(plot_fit(l, p, c, 'names/' + k))
+         # name plots
+         os.makedirs(plot_dir + '/names', exist_ok=True)
+         # we want to merge across all residues.
+         resnames = {}
+         for k,v in self.embedding_dicts['name'].items():
+             sp = k.split('-')
+             n = sp[0]
+             if len(sp) > 1:
+                 n = sp[1]
+             if n in resnames:
+                 resnames[n].append(v)
+             else:
+                 resnames[n] = [v]
+         for k, v in resnames.items():
+             mask = names == v[0]
+             for vi in v[1:]:
+                 mask |= names == vi
+             if np.sum(mask) < 10:
+                 continue
+             p = predict[mask]
+             l = labels[mask]
+             c = class_label[mask]
+             results.append(plot_fit(l, p, c, 'names/' + k))
         
         plt.figure(figsize=(5,4))
         plt.hist(np.abs(predict - labels), bins=1000)
-        plt.savefig('peak-error.png', dpi=300)
+        plt.savefig(plot_dir + 'peak-error' + plot_suffix, dpi=300)
 
         # return top 1 error for convienence
         top1 = np.quantile(np.abs(predict - labels), q=[0.99])
