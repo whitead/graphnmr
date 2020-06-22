@@ -89,7 +89,7 @@ class GCNModel:
         self.test_init_op = iterator.make_initializer(test_dataset)
 
         # assume this order
-        if self.hypers.STRATIFY is not None:
+        if self.hypers.STRATIFY:
             _, (bond_inputs, atom_inputs, peak_inputs, mask_inputs, name_inputs, class_input, record_index) = iterator.get_next()
         else:
             (bond_inputs, atom_inputs, peak_inputs, mask_inputs, name_inputs, class_input, record_index) = iterator.get_next()
