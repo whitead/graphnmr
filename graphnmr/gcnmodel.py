@@ -401,7 +401,7 @@ class GCNModel:
     def build(self, features, adjacency, atom_number):
         raise NotImplementedError()
 
-    def summarize_eval(self, feed_dict={}):
+    def summarize_eval(self, feed_dict={}, rel_plot_dir=None):
     
         
         import matplotlib.pyplot as plt
@@ -414,8 +414,10 @@ class GCNModel:
         # do clipping we do for training
         labels = np.clip(labels, 0, self.hypers.PEAK_CLIP)
 
-
-        plot_dir = self.model_path + '/plots/'
+        if rel_plot_dir is None:
+            plot_dir = self.model_path + '/plots/'
+        else:
+            plot_dir = os.path.join(self.model_path, rel_plot_dir)
         os.makedirs(plot_dir, exist_ok=True)
         def plot_fit(fit_labels, fit_predict, fit_class, title):
             print('plotting', title)

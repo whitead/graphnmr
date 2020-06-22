@@ -5,6 +5,7 @@ import gsd.hoomd
 import numpy as np
 
 MAX_ATOM_NUMBER = 256
+#MAX_ATOM_NUMBER = 384
 #MAX_ATOM_NUMBER = 32
 NEIGHBOR_NUMBER = 8
 BOND_MAX = 3
@@ -95,6 +96,8 @@ def data_parse(proto):
 
 def create_datasets(filenames, skips):
     datasets = []
+    if skips is None:
+        return tf.data.TFRecordDataset(filenames, compression_type='GZIP').map(data_parse)
     for f,s in zip(filenames, skips):
         d = tf.data.TFRecordDataset([f], compression_type='GZIP').map(data_parse)
         # TODO: solve this in the data (?)
