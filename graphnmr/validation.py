@@ -157,3 +157,59 @@ def write_peak_labels(filename, embeddings, record_info, output, batch_size=32):
             pass
     return 
     
+def duplicate_labels(filename, embeddings, record_info, batch_size=32, atom_filter='H'):
+    '''Finds duplicate labels (same PDB) in record
+    '''
+    
+    # get look-ups for pdbs
+    with open(record_info, 'r') as f:
+        rinfo_table = np.loadtxt(f, skiprows=1, dtype='str')
+        print(rinfo_table.shape)
+        # convert to dict
+        # key is model_id, value is pdb id
+        rinfo = {int(mid): pdb.split('.pdb')[0] for pdb, mid in zip(rinfo_table[:,0], rinfo_table[:,-3])}
+    # look-ups for atom and res
+    resdict = {v: k for k,v in embeddings['class'].items()}
+    namedict = {v: k for k,v in embeddings['name'].items()}
+
+    tf.reset_default_graph()
+    init_data_op, data = load_records(filename, batch_size=batch_size)    
+
+    # Now write out data
+    all_labels = dict()
+    with tf.Session() as sess:
+        sess.run(init_data_op)
+        try:
+            count = 0
+            while True:
+                mask, peaks, name, c, index = sess.run([data['mask'], data['peaks'], data['name'], data['class'], data['index']])
+                indices = np.nonzero(mask)
+                for b,i in zip(indices[0], indices[1]):
+                    p = rinfo[index[b, 0] ] #protein
+                    r = resdict[c[b, 0]] #residue
+                    n = namedict[name[b, i]] #name
+                    # check if hydrogen
+                    if n.split('-')[1][0] != atom_filter:
+                        continue
+                    key = '{}-{}{}-{}'.format(p, index[b,2], r, n)
+                    if key in all_labels:
+                        # check if it's same nmr file (index 0 matches)
+                        present = False
+                        for id, v in all_labels[key]:
+                            if id == index[b,0]:
+                                present = True
+                                break
+                        if not present:
+                            all_labels[key].append((index[b,0], peaks[b,i]))
+                    else:
+                        all_labels[key] = [(index[b, 0], peaks[b,i])]
+                print('\rFinding Unique Shifts: {}'.format(len(all_labels)), end='')
+        except tf.errors.OutOfRangeError:
+            print('\nDataset complete')
+    dup_labels = dict()
+    for k,v in all_labels.items():
+        if len(v) > 1:
+            # remove model ids when keeping
+            dup_labels[k] = [p for i,p in v]
+    return dup_labels
+    
