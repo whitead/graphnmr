@@ -136,7 +136,7 @@ class GCNModel:
         else:
             checkpoints = tf.train.get_checkpoint_state(self.model_path).all_model_checkpoint_paths
             if i >= len(checkpoints):
-                raise tf.errors.OutOfRangeError('Exhausted checkpoints')
+                raise StopIteration
             checkpoint = checkpoints[i]
         step = int(checkpoint.split('/')[-1].split('.')[-1].split('-')[-1])
         print('Restoring checkpoint {} @ step {}'.format(checkpoint, step))
