@@ -250,9 +250,11 @@ class GCNModel:
                     test_losses.append(loss)
                     # only write summary on save periods.
                     test_writer.add_summary(test_summary, self.global_steps)
-                    # save another one for the embedding projector
-                    saver.save(sess, self.model_path + '/logdir/test/model.ckpt', self.global_steps)
+                    # save another one for the embedding projector (but overwrite)
+                    saver.save(sess, self.model_path + '/logdir/test/model.ckpt', 0)
                     print(epoch, test_losses[-1], train_losses[-1])
+                    # restart training op
+                    sess.run([self.train_init_op, self.reset_counts])                    
         print('Molecules observed: ', self.global_steps)
         print('Class proportion: [class] [test] [train]')
         for k,c,ct in zip(self.embedding_dicts['class'].keys(), self.test_counts, self.train_counts):

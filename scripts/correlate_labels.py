@@ -31,13 +31,25 @@ def plot_fit(fit_labels, fit_predict, title):
 
 embedding_dicts = load_embeddings(sys.argv[1])
 dup_labels = duplicate_labels(sys.argv[3], embedding_dicts, sys.argv[2])
-a, b = [], []
+all_a, all_b = [], []
+names = dict()
 for k,v in dup_labels.items():
+    # get name, last piece
+    n = k.split('-')[-1]
+    if n in names:
+        n_a, n_b = names[n]
+    else:
+        n_a, n_b = [], []    
     for i in range(len(v)):
         for j in range(i + 1, len(v)):
-            a.append(v[i])
-            b.append(v[j])
+            all_a.append(v[i])
+            all_b.append(v[j])
+            n_a.append(v[i])
+            n_b.append(v[j])
+    names[n] = n_a, n_b
 
 #TODO Add classes
-print(plot_fit(np.array(a), np.array(b), 'self-correlation'))
+print(plot_fit(np.array(all_a), np.array(all_b), 'self-correlation'))
 
+for k,v in names.items():
+    print(plot_fit(np.array(v[0]), np.array(v[1]), k))
