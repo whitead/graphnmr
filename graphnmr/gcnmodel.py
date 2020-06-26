@@ -155,7 +155,7 @@ class GCNModel:
 
         with tf.control_dependencies([update_op]):
             # divide by clip to normalize 
-            self.loss = self.hypers.LOSS_FUNCTION(labels=self.peak_labels / self.hypers.PEAK_CLIP, predictions=self.peaks / self.hypers.PEAK_CLIP, weights=self.mask)
+            self.loss = self.hypers.LOSS_FUNCTION(labels=self.peak_labels, predictions=self.peaks, weights=self.mask)
             optimizer = tf.train.AdamOptimizer(self.hypers.LEARNING_RATE)
             #gvs =  optimizer.compute_gradients(self.loss)
             #gvs = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gvs if grad is not None]
