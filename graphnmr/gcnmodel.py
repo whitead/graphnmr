@@ -154,7 +154,8 @@ class GCNModel:
         self.reset_counts = class_counts.assign(tf.zeros_like(class_counts))
 
         with tf.control_dependencies([update_op]):
-            self.loss = self.hypers.LOSS_FUNCTION(labels=self.peak_labels, predictions=self.peaks, weights=self.mask)
+            # divide by clip to normalize 
+            self.loss = self.hypers.LOSS_FUNCTION(labels=self.peak_labels / self.PEAK_CLIP, predictions=self.peaks / self.PEAK_CLIP, weights=self.mask)
             optimizer = tf.train.AdamOptimizer(self.hypers.LEARNING_RATE)
             #gvs =  optimizer.compute_gradients(self.loss)
             #gvs = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gvs if grad is not None]
@@ -675,7 +676,10 @@ class StructGCNModel(GCNModel):
             for _ in range(self.hypers.EDGE_FC_LAYERS - 2):
                 x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_SIZE, activation=tf.keras.activations.relu)(x)
                 x = tf.keras.layers.BatchNormalization()(x)
-            x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_OUT, activation=tf.keras.activations.tanh)(x)
+            if self.hypers.NON_LINEAR:
+                x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_OUT, activation=tf.keras.activations.tanh)(x)
+            else:
+                x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_OUT, activation=tf.keras.activations.relu)(x)
             self.bond_aug = tf.reshape(x, [batch_size, atom_number, neighbor_size, self.hypers.EDGE_EMBEDDING_OUT])
             if self.using_dataset:
                 tf.summary.histogram('bond-aug', tf.boolean_mask(self.bond_aug, self.bool_mask))
@@ -762,7 +766,7 @@ class StructGCNModel(GCNModel):
                 x = tf.keras.layers.BatchNormalization()(x)
             if self.hypers.RESIDUE:
                 x = x + x0
-            x = tf.keras.activations.relu(x)
+            x = tf.keras.layers.Dropout(self.dropout_rate, noise_shape=[batch_size, 1, self.hypers.ATOM_EMBEDDING_SIZE])(tf.keras.activations.relu(x))
         # penultimate with non-linearity (?)
         if self.hypers.NON_LINEAR:
             x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE // 2, activation=tf.keras.activations.tanh)(x)
