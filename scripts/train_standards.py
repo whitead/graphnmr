@@ -22,9 +22,9 @@ weighted_filenames = [os.path.join(DATA_DIR,f'train-structure-protein-data-{MAX_
 atom_number = MAX_ATOM_NUMBER
 neighbor_number = NEIGHBOR_NUMBER
 
-skips = [10000]
+skips = [6000] # set to be about the same numebr of shifts as the test dataset
 
-def train_model(name, hypers, weighted=True, learning_rates=None):
+def train_model(name, hypers, weighted=True, learning_rates=None, restart=False):
     print('Starting model', name)
     tf.reset_default_graph()
     model = StructGCNModel(SCRATCH + name, embedding_dicts, hypers)
@@ -37,9 +37,11 @@ def train_model(name, hypers, weighted=True, learning_rates=None):
         if learning_rates is None:
             model.run_train()
         else:
-            for i, lr in enumerate(learning_rates):
+            model.hypers.LEARNING_RATE = learning_rates[0]
+            model.run_train(restart=restart)
+            for i, lr in enumerate(learning_rates[1:]):
                 model.hypers.LEARNING_RATE = lr
-                model.run_train(restart=True if i > 0 else False )
+                model.run_train(restart=True)
     model.summarize_eval()
 
 #train_model('struct-model-11/tiny', GCNHypersTiny())
@@ -113,13 +115,41 @@ hypers.NON_LINEAR = True
 hypers.BATCH_SIZE = 16
 hypers.SAVE_PERIOD = 50
 hypers.NUM_EPOCHS = 2000
-#train_model('struct-model-13/hyper-attempt-8', hypers, True, learning_rates=[1e-4, 1e-6, 1e-6, 1e-6, 1e-6])
-
+#train_model('struct-model-13/hyper-attempt-8', hypers, True, learning_rates=[1e-4, 1e-6, 1e-6, 1e-6, 1e-6], restart=True)
+#train_model('struct-model-13/hyper-attempt-8-unweighted', hypers, False, learning_rates=[1e-5, 1e-6, 1e-6, 1e-6, 1e-6], restart=True)
 
 hypers = GCNHypersStandard()
 hypers.SAVE_PERIOD = 50
 hypers.NUM_EPOCHS = 5000
 hypers.BATCH_NORM = True
-train_model('struct-model-13/hyper-attempt-9', hypers, True, learning_rates=[1e-4, 1e-6])
+#train_model('struct-model-13/hyper-attempt-9', hypers, True, learning_rates=[1e-4, 1e-5], restart=True)
+
+hypers = GCNHypersStandard()
+hypers.SAVE_PERIOD = 50
+hypers.NUM_EPOCHS = 5000
+hypers.BATCH_NORM = True
+hypers.FC_ACTIVATION = tf.keras.activations.softmax
+hypers.GCN_ACTIVATION = tf.keras.activations.softmax
+#train_model('struct-model-13/hyper-attempt-10', hypers, True, learning_rates=[1e-4, 1e-5, 1e-6])
 
 
+hypers = GCNHypersStandard()
+hypers.SAVE_PERIOD = 50
+hypers.NUM_EPOCHS = 2000
+hypers.BATCH_NORM = True
+hypers.ATOM_EMBEDDING_SIZE = 128
+hypers.STACKS = 6
+hypers.EDGE_FC_LAYERS = 4
+hypers.EDGE_EMBEDDING_SIZE = 16
+hypers.EDGE_EMBEDDING_OUT = 8
+hypers.RESIDUE = False
+hypers.BATCH_NORM = True
+hypers.BATCH_SIZE = 8
+#train_model('struct-model-13/hyper-attempt-11', hypers, True, learning_rates=[1e-6, 1e-6, 1e-6], restart=True)
+
+hypers = GCNHypersStandard()
+hypers.BATCH_SIZE = 8
+hypers.NUM_EPOCHS = 10000
+hypers.BATCH_NORM = True
+hypers.DROPOUT = 0
+train_model('struct-model-13/hyper-attempt-12', hypers, True, learning_rates=[1e-4, 1e-5, 1e-6], restart=True)

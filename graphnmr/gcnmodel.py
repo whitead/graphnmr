@@ -411,7 +411,7 @@ class GCNModel:
     def build(self, features, adjacency, atom_number):
         raise NotImplementedError()
 
-    def summarize_eval(self, feed_dict={}, test_data=False, checkpoint_index=-1, classes=True):
+    def summarize_eval(self, feed_dict={}, test_data=False, plot_dir_name=None, checkpoint_index=-1, classes=True):
     
         
         import matplotlib.pyplot as plt
@@ -423,16 +423,20 @@ class GCNModel:
 
         # do clipping we do for training
         labels = np.clip(labels, 0, self.hypers.PEAK_CLIP)
-
-        if not test_data:
-            plot_dir = self.model_path + '/plots/'
+        
+        if plot_dir_name is None:
+            if not test_data:
+                plot_dir = self.model_path + '/plots/'
+            else:
+                plot_dir = self.model_path + '/plots-test/'
         else:
-            plot_dir = self.model_path + '/plots-test/'
+            plot_dir = os.path.join(self.model_path, plot_dir_name) + '/'
         if checkpoint_index == -1:
             plot_suffix = '.png'
         else:
             plot_suffix = '{:04d}.png'.format(checkpoint_index)
         os.makedirs(plot_dir, exist_ok=True)
+        print('Plotting in', plot_dir)
         def plot_fit(fit_labels, fit_predict, fit_class, title):
             print('plotting', title)
             rmsd = np.sqrt(np.mean((fit_labels - fit_predict)**2))
@@ -597,12 +601,14 @@ class StructGCNModel(GCNModel):
         print('Building with ')
         for k,v in self.hypers.__dict__.items():
             print('\t',k, ':', v)
-        print('\t classes: ', len(self.embedding_dicts['class']))
-        print('\t Embeddings: ')
-        for k,v in self.embedding_dicts.items():
-            print('\t\t ', k)
-            for ki, vi in v.items():
-                print('\t\t\t', ki, vi)
+        # no longer print these, too much info
+        if False:
+         print('\t classes: ', len(self.embedding_dicts['class']))
+         print('\t Embeddings: ')
+         for k,v in self.embedding_dicts.items():
+             print('\t\t ', k)
+             for ki, vi in v.items():
+                 print('\t\t\t', ki, vi)
         self.features = features
         self.nlist = nlist
 

@@ -94,14 +94,17 @@ def data_parse(proto):
            parsed_features['residue'],
            parsed_features['indices'])
 
-def create_datasets(filenames, skips):
+def create_datasets(filenames, skips, swap=False):
     datasets = []
     for f,s in zip(filenames, skips):
         d = tf.data.TFRecordDataset([f], compression_type='GZIP').map(data_parse)
         # TODO: solve this in the data (?)
         # Think we did
         #d.filter(lambda *args: tf.reduce_all(tf.is_finite(args[2])))
-        datasets.append( (d.skip(s), d.take(s)) )
+        if swap:
+            datasets.append( (d.skip(s), d.take(s)) )
+        else:
+            datasets.append( (d.take(s), d.skip(s)) )
     return datasets
 
 def make_tfrecord(atom_data, mask_data, nlist, peak_data, residue, atom_names, weights=None, indices=np.zeros((3,1), dtype=np.int64)):

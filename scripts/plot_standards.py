@@ -29,20 +29,33 @@ neighbor_number = NEIGHBOR_NUMBER
 skips = [10000]
 
 
-def plot_model(name, hypers, test=True, progressive=False):
+def plot_model(name, hypers, data='test', progressive=False):
     print('Results for model ', name)
+    plot_dir = ''
     tf.reset_default_graph()
-    model = StructGCNModel(SCRATCH + name, embedding_dicts, hypers)
-    if test:
+    model = StructGCNModel(SCRATCH + name, embedding_dicts, hypers)    
+    test = False
+    if data == 'test':
+        test =True
+        print('Evaluating test data')
         model.build_from_dataset(test_file, True, atom_number=atom_number, neighbor_size=neighbor_number)
+        plot_dir = 'test'
     else:
-        model.build_from_datasets(create_datasets([train_file], skips),
+        train = False
+        if data == 'train':
+            train = True
+            plot_dir = 'train'
+            print('Evaluating train data')
+        else:
+            plot_dir = ''
+            print('Evaluating validation data')
+        model.build_from_datasets(create_datasets([train_file], skips, train),
         tf.constant([0], dtype=tf.int64), 20000,
         atom_number, neighbor_number)
         model.build_train()
     # Assess fit
-    top1, results = model.summarize_eval(test_data=test)
-    with open(name.split('/')[-1] + '{}-results-summary.txt'.format('-test' if test else ''), 'w') as f:
+    top1, results = model.summarize_eval(test_data=test, plot_dir_name='plots-' + plot_dir)
+    with open(name.split('/')[-1] + '-{}-results-summary.txt'.format(plot_dir), 'w') as f:
         keys = ['title', 'corr-coeff', 'R^2', 'MAE', 'RMSD', 'N']
         fs = '{:<12} {:<8.4} {:<8.4} {:<8.4} {:<8.4} {:<8} '
         key_s = '{:<12} {:<8} {:<8} {:<8} {:<8} {:<8}'
@@ -55,7 +68,7 @@ def plot_model(name, hypers, test=True, progressive=False):
     if progressive:
      for i in range(start_index, 1000):
          try:
-             model.summarize_eval(test_data=test, checkpoint_index=i, classes=False)
+             model.summarize_eval(test_data=test, checkpoint_index=i, classes=False, plot_dir_name='plots-' + plot_dir)
          except StopIteration as e:
              break
         
@@ -120,10 +133,10 @@ hypers.EDGE_FC_LAYERS = 3
 hypers.LOSS_FUNCTION = tf.losses.mean_squared_error
 hypers.SAVE_PERIOD = 25
 hypers.NUM_EPOCHS = 3000
-plot_model(model_dir + '/hyper-attempt-5', hypers, progressive=False)
+#plot_model(model_dir + '/hyper-attempt-5', hypers, progressive=False)
 
 hypers.NON_LINEAR = False
-plot_model(model_dir + '/hyper-attempt-6', hypers, progressive=False)
+#plot_model(model_dir + '/hyper-attempt-6', hypers, progressive=False)
 
 
 hypers = GCNHypersStandard()
@@ -131,5 +144,44 @@ hypers.NON_LINEAR = True
 hypers.BATCH_SIZE = 16
 hypers.SAVE_PERIOD = 50
 hypers.NUM_EPOCHS = 1000
-plot_model(model_dir + '/hyper-attempt-8', hypers, progressive=False)
+#plot_model(model_dir + '/hyper-attempt-8', hypers, progressive=False)
+plot_model(model_dir + '/hyper-attempt-8', hypers, progressive=False, data='train')
+plot_model(model_dir + '/hyper-attempt-8-unweighted', hypers, progressive=False, data='train')
+#plot_model(model_dir + '/hyper-attempt-8', hypers, progressive=False)
+#plot_model(model_dir + '/hyper-attempt-8-unweighted', hypers, progressive=False)
 
+
+hypers = GCNHypersStandard()
+hypers.SAVE_PERIOD = 50
+hypers.NUM_EPOCHS = 5000
+hypers.BATCH_NORM = True
+plot_model('struct-model-13/hyper-attempt-9', hypers)
+plot_model('struct-model-13/hyper-attempt-9', hypers, data='train')
+
+
+hypers = GCNHypersStandard()
+hypers.SAVE_PERIOD = 50
+hypers.NUM_EPOCHS = 5000
+hypers.BATCH_NORM = True
+hypers.FC_ACTIVATION = tf.keras.activations.softmax
+hypers.GCN_ACTIVATION = tf.keras.activations.softmax
+
+plot_model('struct-model-13/hyper-attempt-10', hypers)
+plot_model('struct-model-13/hyper-attempt-10', hypers, data='train')
+
+
+hypers = GCNHypersStandard()
+hypers.SAVE_PERIOD = 50
+hypers.NUM_EPOCHS = 2000
+hypers.BATCH_NORM = True
+hypers.ATOM_EMBEDDING_SIZE = 128
+hypers.STACKS = 6
+hypers.EDGE_FC_LAYERS = 4
+hypers.EDGE_EMBEDDING_SIZE = 16
+hypers.EDGE_EMBEDDING_OUT = 8
+hypers.EDGE_EMBEDDING_OUT = 8
+hypers.RESIDUE = False
+hypers.BATCH_NORM = True
+hypers.BATCH_SIZE = 8
+plot_model('struct-model-13/hyper-attempt-11', hypers)
+plot_model('struct-model-13/hyper-attempt-11', hypers, data='train')
