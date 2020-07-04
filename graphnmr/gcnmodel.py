@@ -657,7 +657,9 @@ class StructGCNModel(GCNModel):
                     flat_edge_indices = flat_edge_indices + (flat_edge_indices - atom_number - 1) * (1.0 - mask)
                 return edge_features, flat_edge_indices
             if not self.hypers.EDGE_NONBONDED:
-                edge_features, flat_edge_indices = modify_bond_type(edge_features, flat_edge_indices, 'nonbonded', True)
+                # Z-DISABLED
+                #edge_features, flat_edge_indices = modify_bond_type(edge_features, flat_edge_indices, 'nonbonded', True)
+                edge_features, flat_edge_indices = modify_bond_type(edge_features, flat_edge_indices, 'nonbonded', False)
             if not self.hypers.EDGE_LONG_BOND:
                 edge_features, flat_edge_indices = modify_bond_type(edge_features, flat_edge_indices,1, False)
             # we must remove all the extra zeros rows 

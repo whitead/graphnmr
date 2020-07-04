@@ -14,7 +14,9 @@ import random
 import traceback
 from graphnmr import *
 
-def process_corr(path, debug):
+MA_LOST_FRAGS = 0
+
+def process_corr(path, debug, shiftx_style):
     with open(path, 'r') as f:
         peaks = []
         sequence_map = {}
@@ -25,6 +27,7 @@ def process_corr(path, debug):
         index = 0
         last_id = -1
         for line in f.readlines():
+            print(line, entry_lines)
             if '_Chem_shift_ambiguity_code' in line:
                 entry_lines = True
                 continue
@@ -39,37 +42,16 @@ def process_corr(path, debug):
                 sequence_lines = False
                 continue
             if entry_lines and len(line.split()) > 0:
-                _,srid,rname,name,element,shift,_,_ = line.split()
+                if shiftx_style:
+                    _,pdbid, srid,rname,name,element,shift,*_ = line.split()
+                else:
+                    _,srid,rname,name,element,shift,*_ = line.split()
                 rid = int(srid)
                 if rid != last_id:
                     peaks.append(dict(name=rname))
                     last_id = rid
                 peaks[-1][name] = shift
                 peaks[-1]['index'] = srid
-            elif sequence_lines and len(line.split()) > 0:
-                sline = line.split()
-                if mapping_mode is None:
-                    try:
-                        int(sline[1])
-                        mapping_mode = True
-                    except:
-                        mapping_mode = False
-                if mapping_mode:
-                    for i in range(len(sline) // 3):
-                        pid = int(sline[i * 3 + 0]) - 1
-                        # why?
-                        if pid < 0:
-                            break
-                        while len(sequence) <= pid:
-                            sequence.append('XXX')                        
-                        sequence[pid] = sline[i * 3 + 2]
-
-                else:
-                    for i in range(len(sline) // 2):
-                        index = int(sline[i * 2])
-                        while len(sequence) < index:
-                            sequence.append('XXX')
-                        sequence[index - 1] = sline[i * 2 + 1]
 
     if len(peaks) == 0:
         raise ValueError('Could not parse file')
@@ -128,13 +110,15 @@ def align(seq1, seq2, debug=False):
 def process_pdb(path, corr_path, chain_id, max_atoms,
                 gsd_file, embedding_dicts, NN, nlist_model,
                 keep_residues=[-1, 1],
-                debug=False, units = unit.nanometer, frame_number=3, model_index=0,
-                log_file=None):
+                debug=True, units = unit.nanometer, frame_number=1, model_index=0,
+                log_file=None, shiftx_style = True):
+
+    global MA_LOST_FRAGS
     # load pdb
     pdb = app.PDBFile(path)
 
     # load cs sets
-    peak_data, sequence_map, peak_seq = process_corr(corr_path, debug)
+    peak_data, sequence_map, peak_seq = process_corr(corr_path, debug, shiftx_style)
     
     result = []
     # check for weird/null chain
@@ -173,20 +157,22 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
         fixer.missingResidues = []
         # remove water!
         fixer.removeHeterogens(False)
-        fixer.findMissingAtoms()
-        fixer.findNonstandardResidues()
-        fixer.replaceNonstandardResidues()
-        fixer.addMissingAtoms()
-        fixer.addMissingHydrogens(7.0)
+        if not shiftx_style:
+            fixer.findMissingAtoms()
+            fixer.findNonstandardResidues()
+            fixer.replaceNonstandardResidues()
+            fixer.addMissingAtoms()
+            fixer.addMissingHydrogens(7.0)
         # get new positions
         frame = fixer.positions
         num_atoms = len(frame)
+        # remake residue list each time so they have correct atom ids
+        residues = list(filter(lambda r: r.chain.id[0] == chain_id, fixer.topology.residues()))
         if num_atoms > 20000:
+            MA_LOST_FRAGS += len(residues)
             if debug:
                 print('Exceeded number of atoms for building nlist (change this if you have big GPU memory) in frame {} in pdb {}'.format(fi, path))
             break
-        # remake residue list each time so they have correct atom ids
-        residues = list(filter(lambda r: r.chain.id[0] == chain_id, fixer.topology.residues()))
         # check alignment once
         if pdb_offset is None:
             # create sequence from residues
@@ -269,7 +255,8 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                         break
             atoms = np.zeros((max_atoms), dtype=np.int64)
             # we will put dummy atom at end to keep bond counts the same by bonding to it
-            atoms[-1] = embedding_dicts['atom']['Z']
+            # Z-DISABLED
+            #atoms[-1] = embedding_dicts['atom']['Z']
             mask = np.zeros( (max_atoms), dtype=np.float)
             bonds = np.zeros( (BOND_MAX, max_atoms, max_atoms), dtype=np.int64)
             # nlist:
@@ -337,8 +324,10 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                         else:
                             mask[index] = 0
                     index += 1
+                    # Z-DISABLED
                     # -1 for dummy atom which is stored at end
-                    if index == max_atoms - 2:
+                    if index == max_atoms - 1:#2:
+                        MA_LOST_FRAGS += 1
                         if debug:
                             print('Not enough space for all atoms in ri', ri)
                         success = False
@@ -390,9 +379,11 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                                 if debug:
                                     print('Could not find all neighbors', int(frame_nlist[a.index, ni, 1]), consider)
                                 break
-                            j = max_atoms - 1 # point to dummy atom
+                            # Z-DISABLED
+                            #j = max_atoms - 1 # point to dummy atom
+                            continue
                         # mark as not a neighbor if out of molecule (only for non-subject nlists)
-                        if j == max_atoms - 1:
+                        if False and j == max_atoms - 1:
                             #set index
                             nlist[index,n_index,1] = j
                             # set distance
@@ -444,10 +435,16 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
 PROTEIN_DIR = sys.argv[1]
 # Optional filter to only consider certain pdbs
 PDB_ID_FILTER = None
-if len(sys.argv) == 3:
+if len(sys.argv) >= 3:
     PDB_ID_FILTER = []
     with open(sys.argv[2], 'r') as f:
         PDB_ID_FILTER = set([x.split()[0] for x in f.readlines()])
+    print('Will filter pdbs from', sys.argv[2], flush=True) 
+INVERT_SELECT = False
+if len(sys.argv) >= 4:
+    print('Saw arg', sys.argv[3], 'so inverting filter', flush=True)
+    INVERT_SELECT = True
+
 WRITE_FRAG_PERIOD = 25
 
 # load embedding information
@@ -480,15 +477,19 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
         pbar = tqdm.tqdm(items)
         rinfo.write('PDB Corr Chain Count GSD_id Model_id Frame_id Residue_id\n')
         for index, entry in enumerate(pbar):
-            if PDB_ID_FILTER is not None and entry['pdb_id'] in PDB_ID_FILTER:
-                continue
+            if INVERT_SELECT:
+                if PDB_ID_FILTER is not None and entry['pdb_id'] not in PDB_ID_FILTER:
+                    continue
+            else:
+                if PDB_ID_FILTER is not None and entry['pdb_id'] in PDB_ID_FILTER:
+                    continue                
             try:
                 result, p, n, pc = process_pdb(PROTEIN_DIR + entry['pdb_file'], PROTEIN_DIR + entry['corr'], entry['chain'],
                                         gsd_file=gsd_file,
                                         max_atoms=MAX_ATOM_NUMBER, embedding_dicts=embedding_dicts, NN=NN,
                                                nlist_model=nm, model_index=index, log_file=rinfo)
-                pbar.set_description('Processed PDB {} ({}). Successes {} ({:.2}). Total Records: {}, Peaks: {}. Wrote frags: {}'.format(
-                                   entry['pdb_id'], entry['corr'], n, p, records, peaks, index % WRITE_FRAG_PERIOD == 0))
+                pbar.set_description('Processed PDB {} ({}). Successes {} ({:.2}). Total Records: {}, Peaks: {}. Wrote frags: {}. Lost frags {}({})'.format(
+                                   entry['pdb_id'], entry['corr'], n, p, records, peaks, index % WRITE_FRAG_PERIOD == 0, MA_LOST_FRAGS, MA_LOST_FRAGS / (MA_LOST_FRAGS + n + 1)))
                 # turned off for now
                 if False and len(result) == 0:
                     raise ValueError('Failed to find any records in' +  entry['pdb_id'], entry['corr'])
@@ -502,5 +503,5 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
                 print(traceback.format_exc())
                 print('Failed in ' +  entry['pdb_id'], entry['corr'])
                 pbar.set_description('Failed in ' +  entry['pdb_id'], entry['corr'])
-                #raise e
+                raise e
 print('wrote ', records)
