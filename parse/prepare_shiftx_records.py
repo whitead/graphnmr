@@ -7,7 +7,7 @@ for f in glob.glob('**/*.pdbH', recursive=True):
     ns = f.split(os.path.sep)[-1].split('_')
     key = ns[0]
     pdb_id = ns[1].split('.')[0]
-    data[key] = {'chain': 'A', 'pdb_file': f, 'pdb_id': pdb_id}
+    data[key] = {'chain': '_', 'pdb_file': f, 'pdb_id': pdb_id}
 
 for f in glob.glob('**/*.pdbresno', recursive=True):
     key = f.split(os.path.sep)[-1].split('_')[0]

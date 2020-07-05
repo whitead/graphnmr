@@ -22,26 +22,17 @@ def process_corr(path, debug, shiftx_style):
         sequence_map = {}
         sequence = []
         entry_lines = False
-        sequence_lines = False
         mapping_mode = None
         index = 0
         last_id = -1
         for line in f.readlines():
-            print(line, entry_lines)
-            if '_Chem_shift_ambiguity_code' in line:
+            if '_Atom_shift_assign_ID' in line:
                 entry_lines = True
                 continue
-            elif mapping_mode is None and '_Residue_label' in line:
-                sequence_lines = True
-                continue
-
             if entry_lines and 'stop_' in line:
                 entry_lines = False
-                continue
-            elif sequence_lines and 'stop_' in line:
-                sequence_lines = False
-                continue
-            if entry_lines and len(line.split()) > 0:
+                break
+            if entry_lines and len(line.split()) > 3:
                 if shiftx_style:
                     _,pdbid, srid,rname,name,element,shift,*_ = line.split()
                 else:
@@ -110,10 +101,12 @@ def align(seq1, seq2, debug=False):
 def process_pdb(path, corr_path, chain_id, max_atoms,
                 gsd_file, embedding_dicts, NN, nlist_model,
                 keep_residues=[-1, 1],
-                debug=True, units = unit.nanometer, frame_number=1, model_index=0,
+                debug=False, units = unit.nanometer, frame_number=3, model_index=0,
                 log_file=None, shiftx_style = True):
-
+    
     global MA_LOST_FRAGS
+    if shiftx_style:
+        frame_number = 1
     # load pdb
     pdb = app.PDBFile(path)
 
@@ -123,7 +116,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
     result = []
     # check for weird/null chain
     if chain_id == '_':
-        chain_id = 'A'
+        chain_id = list(pdb.topology.residues())[0].chain.id[0]
     # sometimes chains have extra characters (why?) 
     residues = list(filter(lambda r: r.chain.id[0] == chain_id, pdb.topology.residues()))
     if len(residues) == 0:
