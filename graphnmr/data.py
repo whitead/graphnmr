@@ -7,8 +7,8 @@ import numpy as np
 MAX_ATOM_NUMBER = 256
 #MAX_ATOM_NUMBER = 384
 #MAX_ATOM_NUMBER = 32
-NEIGHBOR_NUMBER = 8
-#NEIGHBOR_NUMBER = 16
+#NEIGHBOR_NUMBER = 8
+NEIGHBOR_NUMBER = 16
 BOND_MAX = 3
 
 def nlist_tf_model(positions, NN, sorted=False):

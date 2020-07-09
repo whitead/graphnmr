@@ -46,6 +46,7 @@ class GCNHypers:
         self.LOSS_FUNCTION = tf.losses.huber_loss
         self.LEARNING_RATE = 1e-4
         self.DROPOUT_RATE = 0.0
+        self.GCN_DROPOUT = True
         self.SAVE_PERIOD = 10
         self.STRATIFY = False
         self.EDGE_DISTANCE = True
@@ -745,7 +746,11 @@ class StructGCNModel(GCNModel):
                 b = tf.get_variable('b-{}'.format(l), shape=[self.hypers.ATOM_EMBEDDING_SIZE])
                 tf.summary.histogram(w.name, w)
                 # extract feature
-                sliced_features = tf.gather_nd(self.feature_mats[-1], full_edge_indices)
+                if self.hypers.GCN_DROPOUT:
+                    f = tf.keras.layers.Dropout(self.dropout_rate)(self.feature_mats[-1])
+                else:
+                    f = self.feature_mats[-1]
+                sliced_features = tf.gather_nd(f, full_edge_indices)
                 # weigh features by edge weights and then go from embedding to embedding
                 # create B x N x NN x M via bond_aug and then go from M to M via weights
                 prod = tf.einsum('bijn,bijl,lmn->bijm', self.bond_aug, sliced_features, w)
@@ -765,8 +770,7 @@ class StructGCNModel(GCNModel):
                 else:
                     self.feature_mats.append(out)
                 self.weights.append(w)
-        # flatten to avoid training as function of atom position
-        x = tf.keras.layers.Dropout(self.dropout_rate, noise_shape=[batch_size,1,self.hypers.ATOM_EMBEDDING_SIZE])(self.feature_mats[-1])
+        x = tf.keras.layers.Dropout(self.dropout_rate)(self.feature_mats[-1])
         x0 = x
         for hl in range(self.hypers.FC_LAYERS - 2 if self.hypers.NON_LINEAR else self.hypers.FC_LAYERS - 1):
             x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE, activation=None)(x)
