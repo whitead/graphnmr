@@ -47,19 +47,14 @@ with tf.Session() as sess:
         pass
 
 
-# trim standards
-to_del = []
 for k,v in standards.items():
     if v[0] == 0:
-        to_del.append(k)
+        continue
     else:
         # final computation of stddev
         v[2] /= v[0]
         v[2] = np.sqrt(v[2])
         
-for k in to_del:
-    del standards[k]
-
 with open('peak_standards.pb', 'wb') as f:
     pickle.dump(standards, f)
 

@@ -1,5 +1,6 @@
 import tensorflow as tf
 import os
+import numpy as np
 from tensorflow.contrib.tensorboard.plugins import projector
 import tqdm
 from .data import data_parse
@@ -41,9 +42,8 @@ class GCNHypers:
         self.BATCH_NORM = False
         self.NON_LINEAR = True
         self.GCN_ACTIVATION = tf.keras.activations.relu # This change needs to be validated as irrelevant tf.keras.layers.LeakyReLU(0.1)
-        #self.GCN_ACTIVATION = tf.keras.activations.tanh
         self.FC_ACTIVATION = tf.keras.activations.relu
-        self.LOSS_FUNCTION = tf.losses.huber_loss
+        self.LOSS_FUNCTION = tf.losses.absolute_difference
         self.LEARNING_RATE = 1e-4
         self.DROPOUT_RATE = 0.0
         self.GCN_DROPOUT = True
@@ -52,10 +52,10 @@ class GCNHypers:
         self.EDGE_DISTANCE = True
         self.EDGE_NONBONDED = True
         self.EDGE_LONG_BOND = True
-        self.PEAK_CLIP = 25 # clip peaks at this. Some garbage data always gets through it seems
+        self.PEAK_CLIP = 500 # clip peaks at this. Some garbage data always gets through it seems. 
 
 class GCNModel:
-    def __init__(self, model_path, embedding_dicts, hypers = None):
+    def __init__(self, model_path, embedding_dicts, peak_standards, hypers = None):
         if hypers is None:
             hypers = GCNHypers()
         self.hypers = hypers
@@ -64,6 +64,7 @@ class GCNModel:
         self.built = False
         self.using_dataset = False
         self.dropout_rate = tf.placeholder(dtype=tf.float32, shape=[])
+        self.peak_standards = peak_standards
         self.global_steps = 0
 
     def build_from_datasets(self, datasets, dataset_choices=None, shuffle=10000, *args, **kw_args):
@@ -99,6 +100,7 @@ class GCNModel:
         self.class_label = class_input
         self.names = name_inputs
         self.record_index = record_index
+        self.atoms = atom_inputs
 
         self.using_dataset = True
 
@@ -122,6 +124,7 @@ class GCNModel:
         self.class_label = class_input
         self.names = name_inputs
         self.record_index = record_index
+        self.atoms = atom_inputs
         self.using_dataset = True
         self.build(atom_inputs, bond_inputs, *args, **kw_args)
 
@@ -263,8 +266,9 @@ class GCNModel:
             print('\t', k, c / sum(self.test_counts), ct / sum(self.train_counts))
 
 
-    def eval_train(self, feed_dict={}, checkpoint_index=-1):
+    def eval_train(self, feed_dict={}, checkpoint_index=-1):        
         predict = []
+        out_atoms = []
         out_labels = []
         out_class = []
         out_names = []
@@ -280,21 +284,22 @@ class GCNModel:
             try:
                 print('Evaluating test data: ', end='')
                 while True:
-                    peaks, labels, mask, class_label, names = sess.run(
-                        [self.peaks, self.peak_labels, self.mask, self.class_label, self.names],
+                    peaks, labels, mask, atoms, class_label, names = sess.run(
+                        [self.peaks, self.peak_labels, self.mask, self.atoms, self.class_label, self.names],
                         feed_dict=self._feed_dict(feed_dict, False))
                     for i in range(len(peaks)):
-                        for p,l,m,n in zip(peaks[i], labels[i], mask[i], names[i]):
+                        for p,l,m,a,n in zip(peaks[i], labels[i], mask[i], atoms[i], names[i]):
                                 if m > 0.1:
                                     N += 1
                                     predict.append(p)
+                                    out_atoms.append(a)
                                     out_labels.append(l)
                                     out_class.append(class_label[i][0])
                                     out_names.append(n)
                     print('\rEvaluating test data: {}'.format(N), end='')
             except tf.errors.OutOfRangeError:
                 print('')
-        return predict, out_labels, out_class, out_names
+        return predict, out_labels, out_atoms, out_class, out_names
 
     def eval(self, feed_dict={}):
         saver = tf.train.Saver()
@@ -335,7 +340,6 @@ class GCNModel:
 
     def to_networkx(self, number=16, feed_dict = {}):
         import networkx as nx
-        import numpy as np
         if not self.built:
             raise ValueError('Must build first')
         saver = tf.train.Saver()
@@ -416,11 +420,10 @@ class GCNModel:
     
         
         import matplotlib.pyplot as plt
-        import numpy as np
         import os
 
-        predict, labels, class_label, names = self.eval_train(feed_dict, checkpoint_index) 
-        predict, labels, class_label, names = np.array(predict), np.array(labels), np.array(class_label), np.array(names)
+        predict, labels, atoms, class_label, names = self.eval_train(feed_dict, checkpoint_index) 
+        predict, labels, atoms, class_label, names = np.array(predict), np.array(labels), np.array(atoms), np.array(class_label), np.array(names)
 
         # do clipping we do for training
         labels = np.clip(labels, 0, self.hypers.PEAK_CLIP)
@@ -450,14 +453,15 @@ class GCNModel:
             else:
                 plt.scatter(fit_labels, fit_predict, marker='o', s=6, alpha=0.5, linewidth=0,
                         c=np.array(fit_class).reshape(-1), cmap=plt.get_cmap('tab20'))
-            # take top 1% for upper bound
-            mmax = np.quantile(fit_labels, q=[0.99] )[0] * 1.2
+            # take top/bot 1% for upper bound/lower bound (with 20% margin)
+            mmin,mmax = np.quantile(fit_labels, q=[0.01, 0.99] )
+            mmin,mmax = mmin * 0.8, mmax * 1.2
             plt.plot([0,mmax], [0,mmax], '-', color='gray')
-            plt.xlim(0, mmax)
-            plt.ylim(0, mmax)
+            plt.xlim(mmin, mmax)
+            plt.ylim(mmin, mmax)
             plt.xlabel('Measured Shift [ppm]')
             plt.ylabel('Predicted Shift [ppm]')
-            plt.savefig(plot_dir + title + '-nostats' + plot_suffix, dpi=300)
+            #plt.savefig(plot_dir + title + '-nostats' + plot_suffix, dpi=300)
             plt.title(title + ': RMSD = {:.4f}. MAE = {:.4f} R^2 = {:.4f}. N={}'.format(rmsd,mae, corr**2, N), fontdict={'fontsize': 8})
             plt.savefig(plot_dir + title + plot_suffix, dpi=300)
             plt.close()
@@ -467,6 +471,17 @@ class GCNModel:
 
         # make overall plot
         results.append(plot_fit(labels, predict, class_label, 'overall'))
+
+        # embedding plots
+        for k,v in self.embedding_dicts['atom'].items():
+            mask = atoms == v
+            if np.sum(mask) == 0:
+                continue
+            p = predict[mask]
+            l = labels[mask]
+            c = class_label[mask]
+            results.append(plot_fit(l, p, c, f'overall-{k}'))
+
 
         # class plots
         if classes:
@@ -515,7 +530,6 @@ class GCNModel:
     
     def plot_examples(self, atom_number, cutoff, number, feed_dict={}):
         import networkx as nx
-        import numpy as np
         import matplotlib.pyplot as plt
         from networkx.drawing.nx_agraph import pygraphviz_layout
 
@@ -615,7 +629,10 @@ class StructGCNModel(GCNModel):
 
         if self.using_dataset:
             # filter to train on only a certain atom type
-            self.mask = self.raw_mask * tf.cast(tf.math.equal(self.features, self.embedding_dicts['atom'][predict_atom]), tf.float32)
+            if predict_atom is not None:
+                self.mask = self.raw_mask * tf.cast(tf.math.equal(self.features, self.embedding_dicts['atom'][predict_atom]), tf.float32)
+            else:
+                self.mask = self.raw_mask
             self.bool_mask = tf.cast(self.mask, tf.bool)
 
         if self.hypers.EDGE_EMBEDDING_SIZE < 2:
@@ -784,7 +801,15 @@ class StructGCNModel(GCNModel):
             x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE // 2, activation=tf.keras.activations.tanh)(x)
             if self.hypers.BATCH_NORM:
                 x = tf.keras.layers.BatchNormalization()(x)
-        self.peaks = tf.keras.layers.Flatten()(tf.keras.layers.Dense(1)(x))
+        raw_peaks =  tf.keras.layers.Flatten()(tf.keras.layers.Dense(1)(x))
+        # now expand to match range of peaks
+        peak_std = np.ones(len(self.embedding_dicts['atom']), dtype=np.float32)
+        peak_avg = np.zeros(len(self.embedding_dicts['atom']), dtype=np.float32)
+        for k,v in self.peak_standards.items():
+            peak_std[k] = v[2]
+            peak_avg[k] = v[1]
+        
+        self.peaks = raw_peaks * tf.nn.embedding_lookup(peak_std, features) + tf.nn.embedding_lookup(peak_avg, features)
         self.built = True
 
         # to be consistent with other methods, must have something here
