@@ -138,8 +138,8 @@ def make_tfrecord(atom_data, mask_data, nlist, peak_data, residue, atom_names, w
         # Use code below if you do not care about nans
         peak_data[np.isnan(peak_data)] = 0
         mask_data[np.isnan(peak_data)] = 0
-    if np.any(np.abs(peak_data) > 500):
-        raise ValueError('Found very large peaks, |v| > 500')
+    if np.any(np.abs(peak_data) > 10000):
+        raise ValueError('Found very large peaks, |v| > 10000')
     features['bond-data'] = tf.train.Feature(float_list=tf.train.FloatList(value=nlist.flatten()))
     features['atom-data'] = tf.train.Feature(int64_list=tf.train.Int64List(value=atom_data.flatten()))
     features['peak-data'] = tf.train.Feature(float_list=tf.train.FloatList(value=peak_data.flatten()))

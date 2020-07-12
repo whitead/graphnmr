@@ -37,7 +37,11 @@ def process_corr(path, debug, shiftx_style):
                     _,pdbid, srid,rname,name,element,shift,*_ = line.split()
                 else:
                     _,srid,rname,name,element,shift,*_ = line.split()
-                rid = int(srid)
+                try:
+                    rid = int(srid)
+                except ValueError as e:
+                    print(f'Failed in on line {line}')
+                    raise e
                 if rid != last_id:
                     peaks.append(dict(name=rname))
                     last_id = rid
@@ -102,7 +106,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                 gsd_file, embedding_dicts, NN, nlist_model,
                 keep_residues=[-1, 1],
                 debug=False, units = unit.nanometer, frame_number=3, model_index=0,
-                log_file=None, shiftx_style = True):
+                log_file=None, shiftx_style = False):
     
     global MA_LOST_FRAGS
     if shiftx_style:
