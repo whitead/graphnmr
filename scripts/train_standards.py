@@ -20,13 +20,14 @@ with open(os.path.join(DATA_DIR,'peak_standards.pb'), 'rb') as f:
 
 # read data from this file
 filenames = [os.path.join(DATA_DIR,f'train-structure-protein-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord')]
+metabolite = [os.path.join(DATA_DIR,f'train-structure-metabolite-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord')]
 weighted_filenames = [os.path.join(DATA_DIR,f'train-structure-protein-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}-weighted.tfrecord'), os.path.join(DATA_DIR,f'train-structure-shift-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}-weighted.tfrecord')]
 atom_number = MAX_ATOM_NUMBER
 neighbor_number = NEIGHBOR_NUMBER
 
 skips = [6000] # set to be about the same numebr of shifts as the test dataset
 
-def train_model(name, hypers, filenames, learning_rates=None, restart=False):
+def train_model(name, hypers, filenames, learning_rates=None, restart=False, skips=skips):
     print('Starting model', name)
     tf.reset_default_graph()
     model = StructGCNModel(SCRATCH + name, embedding_dicts, peak_standards, hypers)
@@ -46,8 +47,32 @@ def train_model(name, hypers, filenames, learning_rates=None, restart=False):
                 model.run_train(restart=True)
     model.summarize_eval()
 
-hypers = GCNHypersStandard()
-train_model('struct-model-17/standard', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-4])
-print('COMPLETED NORMAL DATASET')
-hypers.NUM_EPOCHS = 250
-train_model('struct-model-17/standard', hypers, weighted_filenames[1:2], learning_rates=[1e-6, 1e-6], restart=True)
+if sys.argv[3] == 'standard':
+    hypers = GCNHypersStandard()
+    train_model('struct-model-18/standard', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3, 1e-4])
+    print('COMPLETED NORMAL DATASET')
+    train_model('struct-model-18/standard', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5], restart=True)
+ 
+elif sys.argv[3] == 'nodist':
+    hypers = GCNHypersStandard()
+    hypers.EDGE_DISTANCE = False
+    train_model('struct-model-18/nodist', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3, 1e-4])
+    print('COMPLETED NORMAL DATASET')
+    train_model('struct-model-18/nodist', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5], restart=True)
+
+elif sys.argv[3] == 'noneighs':
+    hypers = GCNHypersStandard()
+    hypers.EDGE_NONBONDED = False
+    train_model('struct-model-18/noneighs', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3, 1e-4])
+    print('COMPLETED NORMAL DATASET')
+    train_model('struct-model-18/noneighs', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5], restart=True)
+
+elif sys.argv[3] == 'metabolite':
+    hypers = GCNHypersStandard()
+    hypers.BATCH_NORM = True
+    hypers.DROPOUT = 0.0
+    hypers.NUM_EPOCHS = 500
+    train_model('struct-model-17/metabolite', hypers, metabolite[:1], learning_rates=[1e-1, 1e-3, 1e-4], restart=False, skips=[50])
+
+else:
+    raise InvalidArgumentError('Unkown job type')

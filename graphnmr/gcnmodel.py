@@ -43,7 +43,7 @@ class GCNHypers:
         self.NON_LINEAR = True
         self.GCN_ACTIVATION = tf.keras.activations.relu # This change needs to be validated as irrelevant tf.keras.layers.LeakyReLU(0.1)
         self.FC_ACTIVATION = tf.keras.activations.relu
-        self.LOSS_FUNCTION = tf.losses.absolute_difference
+        self.LOSS_FUNCTION = tf.losses.mean_squared_error
         self.LEARNING_RATE = 1e-4
         self.DROPOUT_RATE = 0.0
         self.GCN_DROPOUT = True
@@ -443,6 +443,7 @@ class GCNModel:
         print('Plotting in', plot_dir)
         def plot_fit(fit_labels, fit_predict, fit_class, title):
             print('plotting', title)
+            np.savez(plot_dir + title, fit_labels, fit_predict, fit_class)
             rmsd = np.sqrt(np.mean((fit_labels - fit_predict)**2))
             mae = np.mean(np.abs(fit_labels - fit_predict))
             corr = np.corrcoef(fit_labels, fit_predict)[0,1]
@@ -462,7 +463,7 @@ class GCNModel:
             plt.xlabel('Measured Shift [ppm]')
             plt.ylabel('Predicted Shift [ppm]')
             #plt.savefig(plot_dir + title + '-nostats' + plot_suffix, dpi=300)
-            plt.title(title + ': RMSD = {:.4f}. MAE = {:.4f} R^2 = {:.4f}. N={}'.format(rmsd,mae, corr**2, N), fontdict={'fontsize': 8})
+            plt.title(title + ': RMSD = {:.4f}. MAE = {:.4f} R^2 = {:.4f}. N={}'.format(rmsd,mae, corr**2, N), fontdict={'fontsize': 8})            
             plt.savefig(plot_dir + title + plot_suffix, dpi=300)
             plt.close()
             return {'corr-coeff': corr, 'R^2': corr**2, 'MAE': mae, 'RMSD': rmsd, 'N': N, 'title': title, 'plot': plot_dir + title + '.png'}
@@ -685,14 +686,15 @@ class StructGCNModel(GCNModel):
             # atom 0
             edge_features, flat_edge_indices = modify_bond_type(edge_features, flat_edge_indices, 'none', True, False)
 
-            # convert from nm to angstrom
+            # convert from nm to angstrom (for plotting/analysis purposes)
             distances = flat_edges[:, :, 0] * 10
             if not self.hypers.EDGE_DISTANCE:
                 distances = tf.zeros_like(distances)
             else:
-                tf.summary.histogram('edge-distances', tf.clip_by_value(distances, 0, 100))
-                distances = tf.clip_by_value(safe_div(1.0, distances), 0, 100)
-                tf.summary.histogram('edge-distances-features', distances)
+                tf.summary.histogram('edge-distances', tf.clip_by_value(distances, 0.1, 100))
+                # make them run from 0 (far) to 1 (close)
+                distances = tf.clip_by_value(safe_div(1.0, distances), 0, 1)
+                tf.summary.histogram('edge-distances-features', tf.clip_by_value(distances, 0.1, 10))
             # dimension is batch x atom_number  * NN x 1 + edge embed size
             self.bond_embed = tf.concat([edge_features, tf.reshape(distances, [batch_size, atom_number * neighbor_size, 1])], axis=2)
 

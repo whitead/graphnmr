@@ -26,7 +26,8 @@ neighbor_number = NEIGHBOR_NUMBER
 # read data from this file
 test_file = os.path.join(DATA_DIR,f'test/test-structure-shift-data-{atom_number}-{neighbor_number}.tfrecord')
 train_file = os.path.join(DATA_DIR,f'train-structure-protein-data-{atom_number}-{neighbor_number}.tfrecord')
-valid_file = os.path.join(DATA_DIR,f'train-structure-shift-data-{atom_number}-{neighbor_number}-weighted.tfrecord')
+#valid_file = os.path.join(DATA_DIR,f'train-structure-shift-data-{atom_number}-{neighbor_number}-weighted.tfrecord')
+valid_file = train_file
 
 
 
@@ -83,6 +84,25 @@ def plot_model(name, hypers, data='test', progressive=False):
 
 model_dir = 'struct-model-17'
 hypers = GCNHypersStandard()
-plot_model(model_dir + '/standard', hypers, progressive=False)
-plot_model(model_dir + '/standard', hypers, progressive=False, data='train')
-plot_model(model_dir + '/standard', hypers, progressive=False, data='valid')
+#plot_model(model_dir + '/standard', hypers )
+#plot_model(model_dir + '/hyper-attempt-1', hypers )
+
+hypers = GCNHypersStandard()
+hypers.BATCH_NORM = False
+hypers.DROPOUT = 0.2
+plot_model(model_dir + '/hyper-attempt-2', hypers )
+#plot_model(model_dir + '/hyper-attempt-2', hypers, data='validation' )
+#plot_model(model_dir + '/hyper-attempt-2', hypers, data='train' )
+
+hypers = GCNHypersStandard()
+hypers.EDGE_DISTANCE = False
+hypers.BATCH_NORM = False
+hypers.DROPOUT = 0.2
+plot_model(model_dir + '/hyper-attempt-2-nodist', hypers )
+
+hypers = GCNHypersStandard()
+hypers.BATCH_NORM = False
+hypers.DROPOUT = 0.2
+hypers.EDGE_NONBONDED = False
+plot_model(model_dir + '/hyper-attempt-2-noneigh', hypers )
+
