@@ -9,6 +9,7 @@ if len(sys.argv) != 4:
 
 def plot_fit(fit_labels, fit_predict, title):
     plot_suffix = '.png'
+    np.savez(title, fit_labels, fit_predict)
     rmsd = np.sqrt(np.mean((fit_labels - fit_predict)**2))
     mae = np.mean(np.abs(fit_labels - fit_predict))
     corr = np.corrcoef(fit_labels, fit_predict)[0,1]
@@ -30,7 +31,8 @@ def plot_fit(fit_labels, fit_predict, title):
 
 
 embedding_dicts = load_embeddings(sys.argv[1])
-dup_labels = duplicate_labels(sys.argv[3], embedding_dicts, sys.argv[2])
+# allow any atom
+dup_labels = duplicate_labels(sys.argv[3], embedding_dicts, sys.argv[2], atom_filter=None)
 all_a, all_b = [], []
 names = dict()
 for k,v in dup_labels.items():

@@ -189,7 +189,7 @@ def duplicate_labels(filename, embeddings, record_info, batch_size=32, atom_filt
                     r = resdict[c[b, 0]] #residue
                     n = namedict[name[b, i]] #name
                     # check if hydrogen
-                    if n.split('-')[1][0] != atom_filter:
+                    if atom_filter is not None and n.split('-')[1][0] != atom_filter:
                         continue
                     key = '{}-{}{}-{}'.format(p, index[b,2], r, n)
                     if key in all_labels:

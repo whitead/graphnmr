@@ -7,12 +7,12 @@ import os, sys
 
 DO_TRAIN = True
 
-if len(sys.argv) == 3:
+if len(sys.argv) == 4:
     SCRATCH = sys.argv[1]
     DATA_DIR = sys.argv[2]
 else:    
-    SCRATCH = os.curdir + os.path.sep
-    DATA_DIR = 'records/'
+    print('Must pass 3 arguments')
+    exit()
 
 embedding_dicts = load_embeddings(os.path.join(DATA_DIR,'embeddings.pb'))
 with open(os.path.join(DATA_DIR,'peak_standards.pb'), 'rb') as f:
@@ -49,23 +49,29 @@ def train_model(name, hypers, filenames, learning_rates=None, restart=False, ski
 
 if sys.argv[3] == 'standard':
     hypers = GCNHypersStandard()
-    train_model('struct-model-18/standard', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3, 1e-4])
+    #train_model('struct-model-18/standard', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3, 1e-4])
     print('COMPLETED NORMAL DATASET')
-    train_model('struct-model-18/standard', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5], restart=True)
+    #train_model('struct-model-18/standard', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5], restart=True)
+    hypers.DROPOUT_RATE=0.0
+    train_model('struct-model-18/standard', hypers, weighted_filenames[1:2], learning_rates=[1e-5], restart=True)
  
 elif sys.argv[3] == 'nodist':
     hypers = GCNHypersStandard()
     hypers.EDGE_DISTANCE = False
-    train_model('struct-model-18/nodist', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3, 1e-4])
+    #train_model('struct-model-18/nodist', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3, 1e-4])
     print('COMPLETED NORMAL DATASET')
-    train_model('struct-model-18/nodist', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5], restart=True)
+    #train_model('struct-model-18/nodist', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5], restart=True)
+    hypers.DROPOUT_RATE=0.0
+    train_model('struct-model-18/nodist', hypers, weighted_filenames[1:2], learning_rates=[1e-5], restart=True)
 
 elif sys.argv[3] == 'noneighs':
     hypers = GCNHypersStandard()
     hypers.EDGE_NONBONDED = False
-    train_model('struct-model-18/noneighs', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3, 1e-4])
+    #train_model('struct-model-18/noneighs', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3, 1e-4])
     print('COMPLETED NORMAL DATASET')
-    train_model('struct-model-18/noneighs', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5], restart=True)
+    #train_model('struct-model-18/noneighs', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5], restart=True)
+    hypers.DROPOUT_RATE=0.0
+    train_model('struct-model-18/noneighs', hypers, weighted_filenames[1:2], learning_rates=[1e-5], restart=True)
 
 elif sys.argv[3] == 'metabolite':
     hypers = GCNHypersStandard()

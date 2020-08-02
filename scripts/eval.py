@@ -20,7 +20,7 @@ neighbor_number = NEIGHBOR_NUMBER
 hypers = GCNHypersStandard()
 hypers.BATCH_SIZE = 1
 hypers.BATCH_NORM = False
-model_name = 'nmrstruct-model-17/hyper-attempt-2'
+model_name = 'nmrstruct-model-18/standard'
 
 
 

@@ -82,27 +82,15 @@ def plot_model(name, hypers, data='test', progressive=False):
              break
         
 
-model_dir = 'struct-model-17'
+model_dir = 'struct-model-18'
 hypers = GCNHypersStandard()
-#plot_model(model_dir + '/standard', hypers )
-#plot_model(model_dir + '/hyper-attempt-1', hypers )
-
-hypers = GCNHypersStandard()
-hypers.BATCH_NORM = False
-hypers.DROPOUT = 0.2
-plot_model(model_dir + '/hyper-attempt-2', hypers )
-#plot_model(model_dir + '/hyper-attempt-2', hypers, data='validation' )
-#plot_model(model_dir + '/hyper-attempt-2', hypers, data='train' )
+plot_model(model_dir + '/standard', hypers )
 
 hypers = GCNHypersStandard()
 hypers.EDGE_DISTANCE = False
-hypers.BATCH_NORM = False
-hypers.DROPOUT = 0.2
-plot_model(model_dir + '/hyper-attempt-2-nodist', hypers )
+plot_model(model_dir + '/nodist', hypers )
 
 hypers = GCNHypersStandard()
-hypers.BATCH_NORM = False
-hypers.DROPOUT = 0.2
 hypers.EDGE_NONBONDED = False
-plot_model(model_dir + '/hyper-attempt-2-noneigh', hypers )
+plot_model(model_dir + '/noneighs', hypers )
 
