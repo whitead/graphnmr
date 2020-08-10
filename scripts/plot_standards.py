@@ -35,7 +35,7 @@ skips = [6000]
 
 
 def plot_model(name, hypers, data='test', progressive=False):
-    print('Results for model ', name)
+    print('Results for model ', SCRATCH + name)
     plot_dir = ''
     tf.reset_default_graph()
     model = StructGCNModel(SCRATCH + name, embedding_dicts, peak_standards, hypers)

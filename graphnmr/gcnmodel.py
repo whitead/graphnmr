@@ -36,18 +36,18 @@ class GCNHypers:
         self.EDGE_FC_LAYERS = 2
         self.NUM_EPOCHS = 100 #Number of times we do num_batches (how often we stop and save model basically)
         self.NUM_BATCHES = 500 #Number of batches between saves
-        self.GCN_RESIDUE = False
         self.RESIDUE = True
         self.GCN_BIAS = False
         self.BATCH_NORM = False
         self.NON_LINEAR = True
-        self.GCN_ACTIVATION = tf.keras.activations.relu # This change needs to be validated as irrelevant tf.keras.layers.LeakyReLU(0.1)
+        self.GCN_ACTIVATION = tf.keras.activations.softplus # This change needs to be validated as irrelevant tf.keras.layers.LeakyReLU(0.1)
         self.FC_ACTIVATION = tf.keras.activations.relu
         self.LOSS_FUNCTION = tf.losses.mean_squared_error
+        #self.LOSS_FUNCTION = tf.losses.absolute_difference
         self.LEARNING_RATE = 1e-4
         self.DROPOUT_RATE = 0.0
         self.GCN_DROPOUT = True
-        self.SAVE_PERIOD = 10
+        self.SAVE_PERIOD = 1
         self.STRATIFY = False
         self.EDGE_DISTANCE = True
         self.EDGE_NONBONDED = True
@@ -82,7 +82,7 @@ class GCNModel:
             print('Will stratify dataset to', target_dist)
             train_dataset = train_dataset.apply(tf.data.experimental.rejection_resample(lambda *x: tf.reshape(x[4], []), target_dist))
 
-        test_dataset = test_dataset.batch(self.hypers.BATCH_SIZE)        
+        test_dataset = test_dataset.shuffle(shuffle // 4).batch(self.hypers.BATCH_SIZE)
         train_dataset = train_dataset.shuffle(shuffle).batch(self.hypers.BATCH_SIZE)
 
         # Now we make an iterator which allows us to view different batches of data
@@ -203,11 +203,12 @@ class GCNModel:
 
 
  
-    def run_train(self, feed_dict={}, restart=False):
+    def run_train(self, feed_dict={}, restart=False, patience = 3, trailing_avg = 5):
         if not self.built:
             raise ValueError('Must build first')
         test_losses = []
         train_losses = []
+        cur_patience = patience
         self.test_counts = [0 for c in self.embedding_dicts['class'].keys()]
         self.train_counts = self.test_counts[:]
 
@@ -230,13 +231,14 @@ class GCNModel:
             sess.run([self.train_init_op, self.reset_counts])
             single_iter_count = 0
             for epoch in range(self.hypers.NUM_EPOCHS):
+                print('', flush=True)
                 try:
                     for batch in range(self.hypers.NUM_BATCHES):
                         _, loss, counts = sess.run([self.train_step, self.loss, self.class_counts], feed_dict=self._feed_dict(feed_dict, True))
                         # summed already in code.
                         self.train_counts = counts
                         single_iter_count += self.hypers.BATCH_SIZE
-                        self.global_steps += self.hypers.BATCH_SIZE
+                        self.global_steps += 1
                         train_losses.append(loss)
                     print('epoch {} loss = {}'.format(epoch, loss))
                     # compute training summary
@@ -253,6 +255,23 @@ class GCNModel:
                     loss, counts, test_summary = sess.run([self.loss, self.class_counts, merged], feed_dict=self._feed_dict(feed_dict, False))
                     self.test_counts += counts
                     test_losses.append(loss)
+                    # check for early stop
+                    if len(test_losses) > 2 * trailing_avg:
+                        cur_avg = sum(test_losses[-trailing_avg:])
+                        prev_avg = sum(test_losses[-2 * trailing_avg:-trailing_avg])
+                        print(f'current trailing loss vs previous: {cur_avg}, {prev_avg}')
+                        if cur_avg > prev_avg:
+                            cur_patience -= 1
+                            if cur_patience == 0:
+                                # early stop
+                                print('No more patience, stopping')
+                                breakl
+                            else:
+                                cur_patience -= 1
+                                print(f'Being patient {cur_patience} more times')                                
+                        else:                            
+                            print(f'Improved, Patience was {cur_patience}')
+                            cur_patience = patience                    
                     # only write summary on save periods.
                     test_writer.add_summary(test_summary, self.global_steps)
                     # save another one for the embedding projector (but overwrite)

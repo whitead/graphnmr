@@ -4,12 +4,51 @@ import os
 import gsd.hoomd
 import numpy as np
 
+
 MAX_ATOM_NUMBER = 256
 #MAX_ATOM_NUMBER = 384
 #MAX_ATOM_NUMBER = 32
 #NEIGHBOR_NUMBER = 8
 NEIGHBOR_NUMBER = 16
 BOND_MAX = 3
+
+def load_records(filename, batch_size=1):
+    data = tf.data.TFRecordDataset(filename, compression_type='GZIP').map(data_parse)
+    data = data.batch(batch_size)
+    iterator = tf.data.Iterator.from_structure(data.output_types, data.output_shapes)
+    init_op = iterator.make_initializer(data)
+    bond_inputs, atom_inputs, peak_inputs, mask_inputs,name_inputs, class_input, record_index = iterator.get_next()
+    return init_op, {'features': atom_inputs,
+            'nlist': bond_inputs,
+            'peaks': peak_inputs,
+            'mask': mask_inputs,
+            'name': name_inputs,
+            'class': class_input,
+            'index': record_index}
+
+
+
+def count_records(filename, batch_size=32):
+    '''Counts the number of records total in the filename
+    '''
+    tf.reset_default_graph()
+    init_data_op, data = load_records(filename, batch_size=batch_size)    
+    count = 0
+
+    
+    with tf.Session() as sess:
+        sess.run(init_data_op)
+        try:
+            while True:
+                _ = sess.run([data['name']])
+                count += batch_size
+                print('\rCounting records...{}'.format(count), end='')
+        except tf.errors.OutOfRangeError:
+            print('Dataset complete')
+            pass
+    return count
+
+
 
 def nlist_tf_model(positions, NN, sorted=False):
     M = tf.shape(positions)[0]

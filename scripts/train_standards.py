@@ -25,11 +25,17 @@ weighted_filenames = [os.path.join(DATA_DIR,f'train-structure-protein-data-{MAX_
 atom_number = MAX_ATOM_NUMBER
 neighbor_number = NEIGHBOR_NUMBER
 
-skips = [6000] # set to be about the same numebr of shifts as the test dataset
+skips = [0.2, 0.2] # set to be about the same numebr of shifts as the test dataset
 
 def train_model(name, hypers, filenames, learning_rates=None, restart=False, skips=skips):
     print('Starting model', name)
     tf.reset_default_graph()
+    counts = [count_records(f) for f in filenames]
+    for c,f in zip(counts, filenames):
+        print(f'Found {c} in {f}')
+    skips = [int(c * s) for c,s in zip(counts, skips)]
+    hypers.NUM_BATCHES = counts[0] - skips[0]
+    print(f'Adjusting NUM_BATCHES to be {hypers.NUM_BATCHES}. Will use {skips[0]} for validation data')
     model = StructGCNModel(SCRATCH + name, embedding_dicts, peak_standards, hypers)
     model.build_from_datasets(create_datasets(filenames, skips),
                               tf.constant([0], dtype=tf.int64), 20000,
@@ -38,10 +44,10 @@ def train_model(name, hypers, filenames, learning_rates=None, restart=False, ski
     model.build_train()
     if DO_TRAIN:
         if learning_rates is None:
-            model.run_train()
+            model.run_train() 
         else:
             model.hypers.LEARNING_RATE = learning_rates[0]
-            model.run_train(restart=restart)
+            model.run_train(restart=restart, patience=100) # no early stop on first run
             for i, lr in enumerate(learning_rates[1:]):
                 model.hypers.LEARNING_RATE = lr
                 model.run_train(restart=True)
@@ -49,29 +55,24 @@ def train_model(name, hypers, filenames, learning_rates=None, restart=False, ski
 
 if sys.argv[3] == 'standard':
     hypers = GCNHypersStandard()
-    #train_model('struct-model-18/standard', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3, 1e-4])
+    #train_model('struct-model-18/standard', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3])
     print('COMPLETED NORMAL DATASET')
-    #train_model('struct-model-18/standard', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5], restart=True)
-    hypers.DROPOUT_RATE=0.0
-    train_model('struct-model-18/standard', hypers, weighted_filenames[1:2], learning_rates=[1e-5], restart=True)
+    train_model('struct-model-18/standard', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-4, 1e-5])
  
 elif sys.argv[3] == 'nodist':
     hypers = GCNHypersStandard()
     hypers.EDGE_DISTANCE = False
-    #train_model('struct-model-18/nodist', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3, 1e-4])
+    train_model('struct-model-18/nodist', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3])
     print('COMPLETED NORMAL DATASET')
-    #train_model('struct-model-18/nodist', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5], restart=True)
-    hypers.DROPOUT_RATE=0.0
-    train_model('struct-model-18/nodist', hypers, weighted_filenames[1:2], learning_rates=[1e-5], restart=True)
+    train_model('struct-model-18/nodist', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-4, 1e-5], restart=True)
 
 elif sys.argv[3] == 'noneighs':
     hypers = GCNHypersStandard()
     hypers.EDGE_NONBONDED = False
-    #train_model('struct-model-18/noneighs', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3, 1e-4])
+    train_model('struct-model-18/noneighs', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3])
     print('COMPLETED NORMAL DATASET')
-    #train_model('struct-model-18/noneighs', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5], restart=True)
-    hypers.DROPOUT_RATE=0.0
-    train_model('struct-model-18/noneighs', hypers, weighted_filenames[1:2], learning_rates=[1e-5], restart=True)
+    train_model('struct-model-18/noneighs', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-4, 1e-5], restart=True)
+
 
 elif sys.argv[3] == 'metabolite':
     hypers = GCNHypersStandard()
