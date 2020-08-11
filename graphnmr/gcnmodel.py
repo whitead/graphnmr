@@ -40,7 +40,7 @@ class GCNHypers:
         self.GCN_BIAS = False
         self.BATCH_NORM = False
         self.NON_LINEAR = True
-        self.GCN_ACTIVATION = tf.keras.activations.softplus # This change needs to be validated as irrelevant tf.keras.layers.LeakyReLU(0.1)
+        self.GCN_ACTIVATION = tf.keras.activations.relu # This change needs to be validated as irrelevant tf.keras.layers.LeakyReLU(0.1)
         self.FC_ACTIVATION = tf.keras.activations.relu
         self.LOSS_FUNCTION = tf.losses.mean_squared_error
         #self.LOSS_FUNCTION = tf.losses.absolute_difference
@@ -130,7 +130,7 @@ class GCNModel:
 
 
     def _feed_dict(self, fd, training):
-        return {**fd, self.dropout_rate:self.hypers.DROPOUT_RATE if training else 0}
+        return {**fd, self.dropout_rate:self.hypers.DROPOUT_RATE if training else 0, self.training: training}
 
 
     def load(self, sess, i=-1):
@@ -161,10 +161,10 @@ class GCNModel:
             # divide by clip to normalize 
             self.loss = self.hypers.LOSS_FUNCTION(labels=self.peak_labels, predictions=self.peaks, weights=self.mask)
             optimizer = tf.train.AdamOptimizer(self.hypers.LEARNING_RATE)
-            #gvs =  optimizer.compute_gradients(self.loss)
-            #gvs = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gvs if grad is not None]
-            #self.train_step = optimizer.apply_gradients(gvs)
-            self.train_step = optimizer.minimize(self.loss)
+            gvs =  optimizer.compute_gradients(self.loss)
+            gvs = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gvs if grad is not None]
+            self.train_step = optimizer.apply_gradients(gvs)
+            #self.train_step = optimizer.minimize(self.loss)
             self.class_counts = tf.identity(class_counts)
         tf.summary.scalar('loss', self.loss)
         self.masked_peaks = tf.boolean_mask(self.peaks, self.bool_mask)
@@ -203,7 +203,7 @@ class GCNModel:
 
 
  
-    def run_train(self, feed_dict={}, restart=False, patience = 3, trailing_avg = 5):
+    def run_train(self, feed_dict={}, restart=False, patience=3, trailing_avg=5):
         if not self.built:
             raise ValueError('Must build first')
         test_losses = []
@@ -252,7 +252,7 @@ class GCNModel:
                     saver.save(sess, self.model_path + '/model.ckpt', global_step=self.global_steps)
                     # now run test
                     sess.run([self.test_init_op, self.reset_counts])
-                    loss, counts, test_summary = sess.run([self.loss, self.class_counts, merged], feed_dict=self._feed_dict(feed_dict, False))
+                    loss, counts, test_summary = sess.run([self.loss, self.class_counts, merged], feed_dict=self._feed_dict(feed_dict, True))
                     self.test_counts += counts
                     test_losses.append(loss)
                     # check for early stop
@@ -265,7 +265,7 @@ class GCNModel:
                             if cur_patience == 0:
                                 # early stop
                                 print('No more patience, stopping')
-                                breakl
+                                break
                             else:
                                 cur_patience -= 1
                                 print(f'Being patient {cur_patience} more times')                                
@@ -276,7 +276,7 @@ class GCNModel:
                     test_writer.add_summary(test_summary, self.global_steps)
                     # save another one for the embedding projector (but overwrite)
                     saver.save(sess, self.model_path + '/logdir/test/model.ckpt', 0)
-                    print(epoch, test_losses[-1], train_losses[-1])
+                    print(epoch, 'test:' ,test_losses[-1], 'train:', train_losses[-1])
                     # restart training op
                     sess.run([self.train_init_op, self.reset_counts])                    
         print('Molecules observed: ', self.global_steps)
@@ -646,6 +646,7 @@ class StructGCNModel(GCNModel):
                  print('\t\t\t', ki, vi)
         self.features = features
         self.nlist = nlist
+        self.training = tf.placeholder(dtype=tf.bool, shape=[])
 
         if self.using_dataset:
             # filter to train on only a certain atom type
@@ -722,7 +723,7 @@ class StructGCNModel(GCNModel):
             x = self.bond_embed
             for _ in range(self.hypers.EDGE_FC_LAYERS - 2):
                 x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_SIZE, activation=tf.keras.activations.relu)(x)
-                x = tf.keras.layers.BatchNormalization()(x)
+                x = tf.keras.layers.BatchNormalization(renorm=True)(x, training=self.training)
             if self.hypers.NON_LINEAR:
                 x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_OUT, activation=tf.keras.activations.tanh)(x)
             else:
@@ -798,7 +799,7 @@ class StructGCNModel(GCNModel):
                 #p1 = tf.print("nlist:", self.nlist, "\n indicies:", full_edge_indices, "\nfeatures:", self.feature_mats[-1], "\nsliced:", sliced_features, summarize=1000)
                 #with tf.control_dependencies([p1]):
                 if self.hypers.BATCH_NORM:
-                    reduced = tf.keras.layers.BatchNormalization()(reduced)
+                    reduced = tf.keras.layers.BatchNormalization(renorm=True)(reduced, training=self.training)
                 if self.hypers.GCN_BIAS:
                     out = self.hypers.GCN_ACTIVATION(reduced + b)
                 else:
@@ -813,7 +814,7 @@ class StructGCNModel(GCNModel):
         for hl in range(self.hypers.FC_LAYERS - 2 if self.hypers.NON_LINEAR else self.hypers.FC_LAYERS - 1):
             x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE, activation=None)(x)
             if self.hypers.BATCH_NORM:
-                x = tf.keras.layers.BatchNormalization()(x)
+                x = tf.keras.layers.BatchNormalization(renorm=True)(x, training=self.training)
             if self.hypers.RESIDUE:
                 x = x + x0
             x = tf.keras.layers.Dropout(self.dropout_rate, noise_shape=[batch_size, 1, self.hypers.ATOM_EMBEDDING_SIZE])(tf.keras.activations.relu(x))
@@ -821,7 +822,7 @@ class StructGCNModel(GCNModel):
         if self.hypers.NON_LINEAR:
             x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE // 2, activation=tf.keras.activations.tanh)(x)
             if self.hypers.BATCH_NORM:
-                x = tf.keras.layers.BatchNormalization()(x)
+                x = tf.keras.layers.BatchNormalization(renorm=True)(x, training=self.training)
         raw_peaks =  tf.keras.layers.Flatten()(tf.keras.layers.Dense(1)(x))
         # now expand to match range of peaks
         peak_std = np.ones(len(self.embedding_dicts['atom']), dtype=np.float32)

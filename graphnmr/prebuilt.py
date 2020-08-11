@@ -5,7 +5,7 @@ class GCNHypersStandard(GCNHypers):
         super(GCNHypersStandard, self).__init__()
         self.NUM_EPOCHS = 50
         self.NUM_BATCHES = 256
-        self.BATCH_SIZE = 16
+        self.BATCH_SIZE = 8
         self.SAVE_PERIOD = 1
         self.EDGE_DISTANCE = True
         self.EDGE_NONBONDED = True
@@ -16,5 +16,5 @@ class GCNHypersStandard(GCNHypers):
         self.RESIDUE = True
         self.DROPOUT_RATE = 0.0 #?
         self.BATCH_NORM = True
-        self.EDGE_FC_LAYERS = 3
+        self.EDGE_FC_LAYERS = 2
         

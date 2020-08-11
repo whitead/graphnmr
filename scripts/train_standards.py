@@ -27,19 +27,19 @@ neighbor_number = NEIGHBOR_NUMBER
 
 skips = [0.2, 0.2] # set to be about the same numebr of shifts as the test dataset
 
-def train_model(name, hypers, filenames, learning_rates=None, restart=False, skips=skips):
+def train_model(name, hypers, filenames, learning_rates=None, restart=False, skips=skips, atom=None):
     print('Starting model', name)
     tf.reset_default_graph()
     counts = [count_records(f) for f in filenames]
     for c,f in zip(counts, filenames):
         print(f'Found {c} in {f}')
     skips = [int(c * s) for c,s in zip(counts, skips)]
-    hypers.NUM_BATCHES = counts[0] - skips[0]
+    hypers.NUM_BATCHES = 32#counts[0] - skips[0]
     print(f'Adjusting NUM_BATCHES to be {hypers.NUM_BATCHES}. Will use {skips[0]} for validation data')
     model = StructGCNModel(SCRATCH + name, embedding_dicts, peak_standards, hypers)
     model.build_from_datasets(create_datasets(filenames, skips),
                               tf.constant([0], dtype=tf.int64), 20000,
-                              atom_number, neighbor_number, predict_atom=None)
+                              atom_number, neighbor_number, predict_atom=atom)
     # add learning rate
     model.build_train()
     if DO_TRAIN:
@@ -55,9 +55,11 @@ def train_model(name, hypers, filenames, learning_rates=None, restart=False, ski
 
 if sys.argv[3] == 'standard':
     hypers = GCNHypersStandard()
-    #train_model('struct-model-18/standard', hypers, weighted_filenames[:1], learning_rates=[1e-4, 1e-3])
+    hypers.NUM_EPOCHS = 5
+    #train_model('struct-model-18/standard', hypers, weighted_filenames[:1], learning_rates=[1e-1, 1e-2], atom='H')
     print('COMPLETED NORMAL DATASET')
-    train_model('struct-model-18/standard', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-4, 1e-5])
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard', hypers, weighted_filenames[1:2], learning_rates=[1e-1, 1e-3, 1e-4, 1e-5], atom='H')
  
 elif sys.argv[3] == 'nodist':
     hypers = GCNHypersStandard()
