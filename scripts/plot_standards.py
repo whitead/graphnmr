@@ -34,7 +34,7 @@ valid_file = train_file
 skips = [6000]
 
 
-def plot_model(name, hypers, data='test', progressive=False):
+def plot_model(name, hypers, data='test', progressive=False, atom=None):
     print('Results for model ', SCRATCH + name)
     plot_dir = ''
     tf.reset_default_graph()
@@ -45,7 +45,7 @@ def plot_model(name, hypers, data='test', progressive=False):
         print('Evaluating test data')
         model.build_from_dataset(test_file, True, 
                                  atom_number=atom_number, neighbor_size=neighbor_number,
-                                 predict_atom=None)
+                                 predict_atom=atom)
         plot_dir = 'test'
     else:
         train = False
@@ -84,13 +84,22 @@ def plot_model(name, hypers, data='test', progressive=False):
 
 model_dir = 'struct-model-18'
 hypers = GCNHypersStandard()
-plot_model(model_dir + '/standard', hypers )
+plot_model(model_dir + '/standard', hypers, atom='H')
+
+hypers = GCNHypersStandard()
+hypers.NON_LINEAR = False
+plot_model(model_dir + '/linear', hypers, atom='H')
+
+
+hypers = GCNHypersStandard()
+plot_model(model_dir + '/standard-all', hypers)
+
 
 hypers = GCNHypersStandard()
 hypers.EDGE_DISTANCE = False
-plot_model(model_dir + '/nodist', hypers )
+plot_model(model_dir + '/nodist', hypers , atom = 'H')
 
 hypers = GCNHypersStandard()
 hypers.EDGE_NONBONDED = False
-plot_model(model_dir + '/noneighs', hypers )
+plot_model(model_dir + '/noneighs', hypers, atom='H')
 

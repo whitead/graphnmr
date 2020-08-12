@@ -42,7 +42,7 @@ class GCNHypers:
         self.NON_LINEAR = True
         self.GCN_ACTIVATION = tf.keras.activations.relu # This change needs to be validated as irrelevant tf.keras.layers.LeakyReLU(0.1)
         self.FC_ACTIVATION = tf.keras.activations.relu
-        self.LOSS_FUNCTION = tf.losses.mean_squared_error
+        self.LOSS_FUNCTION = tf.losses.huber_loss
         #self.LOSS_FUNCTION = tf.losses.absolute_difference
         self.LEARNING_RATE = 1e-4
         self.DROPOUT_RATE = 0.0
@@ -161,10 +161,10 @@ class GCNModel:
             # divide by clip to normalize 
             self.loss = self.hypers.LOSS_FUNCTION(labels=self.peak_labels, predictions=self.peaks, weights=self.mask)
             optimizer = tf.train.AdamOptimizer(self.hypers.LEARNING_RATE)
-            gvs =  optimizer.compute_gradients(self.loss)
-            gvs = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gvs if grad is not None]
-            self.train_step = optimizer.apply_gradients(gvs)
-            #self.train_step = optimizer.minimize(self.loss)
+            #gvs =  optimizer.compute_gradients(self.loss)
+            #gvs = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gvs if grad is not None]
+            #self.train_step = optimizer.apply_gradients(gvs)
+            self.train_step = optimizer.minimize(self.loss)
             self.class_counts = tf.identity(class_counts)
         tf.summary.scalar('loss', self.loss)
         self.masked_peaks = tf.boolean_mask(self.peaks, self.bool_mask)
@@ -252,7 +252,7 @@ class GCNModel:
                     saver.save(sess, self.model_path + '/model.ckpt', global_step=self.global_steps)
                     # now run test
                     sess.run([self.test_init_op, self.reset_counts])
-                    loss, counts, test_summary = sess.run([self.loss, self.class_counts, merged], feed_dict=self._feed_dict(feed_dict, True))
+                    loss, counts, test_summary = sess.run([self.loss, self.class_counts, merged], feed_dict=self._feed_dict(feed_dict, False))
                     self.test_counts += counts
                     test_losses.append(loss)
                     # check for early stop
@@ -262,12 +262,11 @@ class GCNModel:
                         print(f'current trailing loss vs previous: {cur_avg}, {prev_avg}')
                         if cur_avg > prev_avg:
                             cur_patience -= 1
-                            if cur_patience == 0:
+                            if cur_patience < 0:
                                 # early stop
                                 print('No more patience, stopping')
                                 break
                             else:
-                                cur_patience -= 1
                                 print(f'Being patient {cur_patience} more times')                                
                         else:                            
                             print(f'Improved, Patience was {cur_patience}')
@@ -723,7 +722,8 @@ class StructGCNModel(GCNModel):
             x = self.bond_embed
             for _ in range(self.hypers.EDGE_FC_LAYERS - 2):
                 x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_SIZE, activation=tf.keras.activations.relu)(x)
-                x = tf.keras.layers.BatchNormalization(renorm=True)(x, training=self.training)
+                if self.hypers.BATCH_NORM:
+                    x = tf.keras.layers.BatchNormalization(renorm=True)(x, training=self.training)
             if self.hypers.NON_LINEAR:
                 x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_OUT, activation=tf.keras.activations.tanh)(x)
             else:
