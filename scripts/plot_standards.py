@@ -62,8 +62,14 @@ def plot_model(name, hypers, data='test', progressive=False, atom=None):
         tf.constant([0], dtype=tf.int64), 20000,
         atom_number, neighbor_number)
         model.build_train()
+    tpn = np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()])
+    print('TRAINABLE PARAMETERS:', tpn)
     # Assess fit
-    top1, results = model.summarize_eval(test_data=test, plot_dir_name='plots-' + plot_dir)
+    try:
+        top1, results = model.summarize_eval(test_data=test, plot_dir_name='plots-' + plot_dir)
+    except AttributeError:
+        print('Skipping', name, 'probably because no checkpoints yet')
+        return
     with open(name.split('/')[-1] + '-{}-results-summary.txt'.format(plot_dir), 'w') as f:
         keys = ['title', 'corr-coeff', 'R^2', 'MAE', 'RMSD', 'N']
         fs = '{:<12} {:<8.4} {:<8.4} {:<8.4} {:<8.4} {:<8} '
@@ -90,6 +96,13 @@ hypers = GCNHypersStandard()
 hypers.NON_LINEAR = False
 plot_model(model_dir + '/linear', hypers, atom='H')
 
+hypers = GCNHypersStandard()
+plot_model(model_dir + '/dropout', hypers, atom='H')
+
+hypers = GCNHypersStandard()
+hypers.RESIDUE = False
+plot_model(model_dir + '/noresidue', hypers, atom='H')
+
 
 hypers = GCNHypersStandard()
 plot_model(model_dir + '/standard-all', hypers)
@@ -102,4 +115,16 @@ plot_model(model_dir + '/nodist', hypers , atom = 'H')
 hypers = GCNHypersStandard()
 hypers.EDGE_NONBONDED = False
 plot_model(model_dir + '/noneighs', hypers, atom='H')
+
+# this is a mistaken path. Fix someday
+hypers = GCNHypersStandard()
+hypers.GCN_ACTIVATION = tf.keras.activations.softplus
+hypers.FC_ACTIVATION = tf.keras.activations.softplus
+plot_model(model_dir + '/standard-md', hypers, atom='H')
+
+hypers = GCNHypersSmall()
+plot_model(model_dir + '/standard-sm', hypers, atom='H')
+
+hypers = GCNHypersTiny()
+plot_model(model_dir + '/standard-tn', hypers, atom='H')
 

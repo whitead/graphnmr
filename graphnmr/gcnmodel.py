@@ -169,7 +169,7 @@ class GCNModel:
             self.train_step = optimizer.minimize(self.loss)
             self.class_counts = tf.identity(class_counts)
         tf.summary.scalar('loss', self.loss)
-        self.corr = corr_coeff2(self.peak_labels, self.peaks, self.mask)
+        self.corr = corr_coeff(self.peak_labels, self.peaks, self.mask)**2
         tf.summary.scalar('r2', self.corr)
         self.masked_peaks = tf.boolean_mask(self.peaks, self.bool_mask)
         self.masked_labels = tf.boolean_mask(self.peak_labels, self.bool_mask)

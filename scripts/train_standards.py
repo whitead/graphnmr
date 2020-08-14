@@ -19,7 +19,7 @@ with open(os.path.join(DATA_DIR,'peak_standards.pb'), 'rb') as f:
     peak_standards = pickle.load(f)
 
 # read data from this file
-filenames = [os.path.join(DATA_DIR,f'train-structure-protein-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord')]
+filenames = [os.path.join(DATA_DIR,f'train-structure-protein-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord'), os.path.join(DATA_DIR,f'train-structure-shift-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord')]
 metabolite = [os.path.join(DATA_DIR,f'train-structure-metabolite-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord')]
 weighted_filenames = [os.path.join(DATA_DIR,f'train-structure-protein-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}-weighted.tfrecord'), os.path.join(DATA_DIR,f'train-structure-shift-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}-weighted.tfrecord')]
 atom_number = MAX_ATOM_NUMBER
@@ -54,12 +54,44 @@ def train_model(name, hypers, filenames, learning_rates=None, restart=False, ski
 
 if sys.argv[3] == 'standard':
     hypers = GCNHypersStandard()
-    #train_model('struct-model-18/standard', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
-    train_model('struct-model-18/standard', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5], atom='H', restart=True)
+    train_model('struct-model-18/standard', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+
+elif sys.argv[3] == 'standard-uw':
+    hypers = GCNHypersStandard()
+    train_model('struct-model-18/standard-uw', hypers, filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+
+
+elif sys.argv[3] == 'standard-refdb':
+    hypers = GCNHypersStandard()
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/standard-refdb', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-refdb', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5], restart=True, atom='H')
+
 
 elif sys.argv[3] == 'standard-all':
     hypers = GCNHypersStandard()
     train_model('struct-model-18/standard-all', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5])
+
+elif sys.argv[3] == 'soft':
+    hypers = GCNHypersStandard()
+    hypers.GCN_ACTIVATION = tf.keras.activations.softplus
+    hypers.FC_ACTIVATION = tf.keras.activations.softplus
+    train_model('struct-model-18/standard-soft', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+
+
+elif sys.argv[3] == 'standard-md':
+    hypers = GCNHypersMedium()
+    train_model('struct-model-18/standard-md', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+
+elif sys.argv[3] == 'standard-sm':
+    hypers = GCNHypersSmall()
+    train_model('struct-model-18/standard-sm', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+
+elif sys.argv[3] == 'standard-tn':
+    hypers = GCNHypersTiny()
+    train_model('struct-model-18/standard-tn', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+
 
 elif sys.argv[3] == 'nodist':
     hypers = GCNHypersStandard()
@@ -88,8 +120,8 @@ elif sys.argv[3] == 'dropout':
 
 elif sys.argv[3] == 'metabolite':
     hypers = GCNHypersStandard()
-    hypers.NUM_EPOCHS = 500
-    train_model('struct-model-17/metabolite', hypers, metabolite[:1], learning_rates=[1e-1, 1e-3, 1e-4])
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/metabolite', hypers, metabolite[:1], learning_rates=[1e-1, 1e-3, 1e-4, 1e-4])
 
 else:
     raise InvalidArgumentError('Unkown job type')
