@@ -4,6 +4,7 @@ import numpy as np
 from tensorflow.contrib.tensorboard.plugins import projector
 import tqdm
 from .data import data_parse
+from .losses import *
 
 
 def safe_div(numerator, denominator, name='graphbuild-safe-div'):
@@ -42,7 +43,8 @@ class GCNHypers:
         self.NON_LINEAR = True
         self.GCN_ACTIVATION = tf.keras.activations.relu # This change needs to be validated as irrelevant tf.keras.layers.LeakyReLU(0.1)
         self.FC_ACTIVATION = tf.keras.activations.relu
-        self.LOSS_FUNCTION = tf.losses.huber_loss
+        #self.LOSS_FUNCTION = tf.losses.huber_loss
+        self.LOSS_FUNCTION = corr_loss
         #self.LOSS_FUNCTION = tf.losses.absolute_difference
         self.LEARNING_RATE = 1e-4
         self.DROPOUT_RATE = 0.0
@@ -167,6 +169,8 @@ class GCNModel:
             self.train_step = optimizer.minimize(self.loss)
             self.class_counts = tf.identity(class_counts)
         tf.summary.scalar('loss', self.loss)
+        self.corr = corr_coeff2(self.peak_labels, self.peaks, self.mask)
+        tf.summary.scalar('r2', self.corr)
         self.masked_peaks = tf.boolean_mask(self.peaks, self.bool_mask)
         self.masked_labels = tf.boolean_mask(self.peak_labels, self.bool_mask)
         tf.summary.histogram('peak-error', self.masked_peaks - self.masked_labels)
