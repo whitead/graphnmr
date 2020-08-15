@@ -93,10 +93,10 @@ hypers = GCNHypersStandard()
 #plot_model(model_dir + '/standard', hypers, atom='H')
 
 hypers = GCNHypersStandard()
-#plot_model(model_dir + '/standard-uw', hypers, atom='H')
+plot_model(model_dir + '/standard-uw', hypers, atom='H')
 
 hypers = GCNHypersStandard()
-plot_model(model_dir + '/standard-refdb', hypers, atom='H')
+#plot_model(model_dir + '/standard-refdb', hypers, atom='H')
 
 exit()
 

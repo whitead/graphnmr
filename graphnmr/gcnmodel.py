@@ -671,7 +671,7 @@ class StructGCNModel(GCNModel):
                         initializer=tf.random_uniform(
                             [
                                 len(self.embedding_dicts['nlist']), 
-                                self.hypers.EDGE_EMBEDDING_SIZE - 1
+                                1
                             ],
                             -1, 1))
         with tf.name_scope('edge-preprocess'):
@@ -718,8 +718,10 @@ class StructGCNModel(GCNModel):
                 # make them run from 0 (far) to 1 (close)
                 distances = tf.clip_by_value(safe_div(1.0, distances), 0, 1)
                 tf.summary.histogram('edge-distances-features', tf.clip_by_value(distances, 0.1, 10))
+                # tile them to make more 
+                distances = tf.tile(distances[:,:,tf.newaxis], [1, 1, self.hypers.EDGE_EMBEDDING_SIZE - 1])
             # dimension is batch x atom_number  * NN x 1 + edge embed size
-            self.bond_embed = tf.concat([edge_features, tf.reshape(distances, [batch_size, atom_number * neighbor_size, 1])], axis=2)
+            self.bond_embed = tf.concat([edge_features, distances], axis=2)
 
             # edge features includes bonded distance and distance. Bonded distance of 0 = intermolecule neighbor
             # total size is edge embedding size
@@ -840,6 +842,10 @@ class StructGCNModel(GCNModel):
 
         # to be consistent with other methods, must have something here
         self.degree_mat = x
+
+        tpn = np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()])
+        print('TRAINABLE PARAMETERS:', tpn)
+
 
         return self.peaks
         

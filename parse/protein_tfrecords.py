@@ -500,5 +500,5 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
                 print(traceback.format_exc())
                 print('Failed in ' +  entry['pdb_id'], entry['corr'])
                 pbar.set_description('Failed in ' +  entry['pdb_id'], entry['corr'])
-                raise e
+                #raise e
 print('wrote ', records)

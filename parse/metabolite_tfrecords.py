@@ -6,6 +6,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 import io
 import tqdm
+import sys
 
 def prepare_features(entry, embedding_dicts):
     N = len(entry['atoms'])
@@ -134,7 +135,7 @@ def adj_to_nlist(atoms, A, nlist_model, embeddings):
             exit()
         yield nlist
 
-DATA_DIR = 'data' + os.sep
+DATA_DIR = sys.argv[1]
 
 embeddings = load_embeddings('embeddings.pb')
 
