@@ -58,15 +58,15 @@ if sys.argv[3] == 'standard':
 
 elif sys.argv[3] == 'standard-uw':
     hypers = GCNHypersStandard()
-    train_model('struct-model-18/standard-uw', hypers, filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    train_model('struct-model-18/standard-uw', hypers, filenames[1:2], learning_rates=[1e-4, 1e-4, 1e-5], atom='H', restart=True)
 
 
 elif sys.argv[3] == 'standard-refdb':
     hypers = GCNHypersStandard()
-    hypers.NUM_EPOCHS = 5
-    train_model('struct-model-18/standard-refdb', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    #hypers.NUM_EPOCHS = 5
+    #train_model('struct-model-18/standard-refdb', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
     hypers.NUM_EPOCHS = 50
-    train_model('struct-model-18/standard-refdb', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5], restart=True, atom='H')
+    train_model('struct-model-18/standard-refdb', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], restart=True, atom='H')
 
 
 elif sys.argv[3] == 'standard-all':

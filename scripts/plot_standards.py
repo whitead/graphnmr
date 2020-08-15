@@ -90,7 +90,15 @@ def plot_model(name, hypers, data='test', progressive=False, atom=None):
 
 model_dir = 'struct-model-18'
 hypers = GCNHypersStandard()
-plot_model(model_dir + '/standard', hypers, atom='H')
+#plot_model(model_dir + '/standard', hypers, atom='H')
+
+hypers = GCNHypersStandard()
+#plot_model(model_dir + '/standard-uw', hypers, atom='H')
+
+hypers = GCNHypersStandard()
+plot_model(model_dir + '/standard-refdb', hypers, atom='H')
+
+exit()
 
 hypers = GCNHypersStandard()
 hypers.NON_LINEAR = False
