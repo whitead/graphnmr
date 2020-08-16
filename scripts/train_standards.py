@@ -27,7 +27,7 @@ neighbor_number = NEIGHBOR_NUMBER
 
 skips = [0.2, 0.2] # set to be about the same numebr of shifts as the test dataset
 
-def train_model(name, hypers, filenames, learning_rates=None, restart=False, skips=skips, atom=None):
+def train_model(name, hypers, filenames, learning_rates=None, restart=False, skips=skips, atom=None, patience = 5):
     print('Starting model', name)
     tf.reset_default_graph()
     counts = [count_records(f) for f in filenames]
@@ -44,13 +44,16 @@ def train_model(name, hypers, filenames, learning_rates=None, restart=False, ski
     model.build_train()
     if DO_TRAIN:
         model.hypers.LEARNING_RATE = learning_rates[0]
-        model.run_train(restart=restart, patience=5 if restart else 100) # no early stop on first run
+        model.run_train(restart=restart, patience=patience if restart else 100) # no early stop on first run
         for i, lr in enumerate(learning_rates[1:]):
             model.hypers.LEARNING_RATE = lr
             model.run_train(restart=True)
     model.summarize_eval()
 
-#train_model('struct-model-18/standard', hypers, weighted_filenames[:1], learning_rates=[1e-3, 1e-3], atom='H')
+
+#1e-3 -> really big
+#1e-5 -> tuning
+#1e-2 -> busted
 
 if sys.argv[3] == 'standard':
     hypers = GCNHypersStandard()
@@ -61,29 +64,22 @@ elif sys.argv[3] == 'standard-uw':
     hypers.NUM_EPOCHS = 5
     train_model('struct-model-18/standard-uw', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
     hypers.NUM_EPOCHS = 50
-    train_model('struct-model-18/standard-uw', hypers, filenames[1:2], learning_rates=[1e-4, 1e-4, 1e-5], atom='H')
+    train_model('struct-model-18/standard-uw', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
 
-elif sys.argv[3] == 'standard-uw2':
-    hypers = GCNHypersStandard()
-    hypers.EDGE_EMBEDDING_OUT = 16
-    hypers.ATOM_EMBEDDING_SIZE =  64
-    train_model('struct-model-18/standard-uw2', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
 
-elif sys.argv[3] == 'standard-uw3':
-    hypers = GCNHypersStandard()
-    hypers.EDGE_EMBEDDING_OUT = 16
-    hypers.ATOM_EMBEDDING_SIZE =  128
-    hypers.NUM_EPOCHS = 5
-    train_model('struct-model-18/standard-uw3', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
-    hypers.NUM_EPOCHS = 50
-    train_model('struct-model-18/standard-uw3', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-4, 1e-5], atom='H')
-
-elif sys.argv[3] == 'standard-uw4':
+elif sys.argv[3] == 'standard-uwc':
     hypers = GCNHypersStandard()
     hypers.NUM_EPOCHS = 5
-    train_model('struct-model-18/standard-uw4', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    train_model('struct-model-18/standard-uwc', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
     hypers.NUM_EPOCHS = 50
-    train_model('struct-model-18/standard-uw4', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-4, 1e-5], atom='H')
+    train_model('struct-model-18/standard-uwc', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
+
+elif sys.argv[3] == 'standard-refdb-long':
+    hypers = GCNHypersStandard()
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-refdb-long', hypers, filenames[0:2], learning_rates=[1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-refdb-long', hypers, filenames[1:2], learning_rates=[1e-5], atom='H', restart=True)
 
 
 elif sys.argv[3] == 'standard-refdb':
@@ -91,57 +87,70 @@ elif sys.argv[3] == 'standard-refdb':
     hypers.NUM_EPOCHS = 5
     train_model('struct-model-18/standard-refdb', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
     hypers.NUM_EPOCHS = 50
-    train_model('struct-model-18/standard-refdb', hypers, filenames[1:2], learning_rates=[1e-4, 1e-4, 1e-5], atom='H')
+    train_model('struct-model-18/standard-refdb', hypers, filenames[1:2], learning_rates=[1e-4, 1e-4, 1e-5], atom='H', restart=True)
 
 
 elif sys.argv[3] == 'standard-all':
     hypers = GCNHypersStandard()
-    train_model('struct-model-18/standard-all', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5])
-
-elif sys.argv[3] == 'soft':
-    hypers = GCNHypersStandard()
-    hypers.GCN_ACTIVATION = tf.keras.activations.softplus
-    hypers.FC_ACTIVATION = tf.keras.activations.softplus
-    train_model('struct-model-18/standard-soft', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
-
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/standard-all', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5])
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-all', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], restart=True)
 
 elif sys.argv[3] == 'standard-md':
     hypers = GCNHypersMedium()
-    train_model('struct-model-18/standard-md', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/standard-md', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-md', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
 
 elif sys.argv[3] == 'standard-sm':
     hypers = GCNHypersSmall()
-    train_model('struct-model-18/standard-sm', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/standard-sm', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-sm', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
 
 elif sys.argv[3] == 'standard-tn':
     hypers = GCNHypersTiny()
-    train_model('struct-model-18/standard-tn', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
-
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/standard-tn', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-tn', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
 
 elif sys.argv[3] == 'nodist':
     hypers = GCNHypersStandard()
     hypers.EDGE_DISTANCE = False
-    train_model('struct-model-18/nodist', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/nodist', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/nodist', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
 
 elif sys.argv[3] == 'noneighs':
     hypers = GCNHypersStandard()
     hypers.EDGE_NONBONDED = False
-    train_model('struct-model-18/noneighs', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/noneighs', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/noneighs', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
 
 elif sys.argv[3] == 'linear':
     hypers = GCNHypersStandard()
     hypers.NON_LINEAR = False
-    train_model('struct-model-18/linear', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/linear', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/linear', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
+
 
 elif sys.argv[3] == 'noresidue':
     hypers = GCNHypersStandard()
     hypers.RESIDUE = False
-    train_model('struct-model-18/noresidue', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/noresidue', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/noresidue', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
 
-elif sys.argv[3] == 'dropout':
-    hypers = GCNHypersStandard()
-    hypers.DROPOUT_RATE = 0.2
-    train_model('struct-model-18/dropout', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
 
 elif sys.argv[3] == 'metabolite':
     hypers = GCNHypersStandard()

@@ -54,6 +54,7 @@ class GCNHypers:
         self.EDGE_DISTANCE = True
         self.EDGE_NONBONDED = True
         self.EDGE_LONG_BOND = True
+        self.REGULARIZER = tf.keras.regularizers.L1L2(l2=0.0)
         self.PEAK_CLIP = 500 # clip peaks at this. Some garbage data always gets through it seems. 
 
 class GCNModel:
@@ -158,10 +159,13 @@ class GCNModel:
         obs_classes = tf.reshape(tf.one_hot(self.class_label, depth=class_number), [-1, class_number])
         update_op = class_counts.assign_add(tf.reduce_sum(obs_classes, axis=0))
         self.reset_counts = class_counts.assign(tf.zeros_like(class_counts))
+        # get things to regularize outside of keras
+        # hide it when not training in case we're assessing test loss
+        reg_penalty = tf.cast(self.training, tf.float32) * tf.reduce_sum([self.hypers.REGULARIZER(v) for v in self.weights])
 
         with tf.control_dependencies([update_op]):
             # divide by clip to normalize 
-            self.loss = self.hypers.LOSS_FUNCTION(labels=self.peak_labels, predictions=self.peaks, weights=self.mask)
+            self.loss = self.hypers.LOSS_FUNCTION(labels=self.peak_labels, predictions=self.peaks, weights=self.mask) + reg_penalty
             optimizer = tf.train.AdamOptimizer(self.hypers.LEARNING_RATE)
             #gvs =  optimizer.compute_gradients(self.loss)
             #gvs = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gvs if grad is not None]
@@ -727,13 +731,13 @@ class StructGCNModel(GCNModel):
             # total size is edge embedding size
             x = self.bond_embed
             for _ in range(self.hypers.EDGE_FC_LAYERS - 2):
-                x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_SIZE, activation=tf.keras.activations.relu)(x)
+                x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_SIZE, activation=tf.keras.activations.relu, kernel_regularizer=self.hypers.REGULARIZER)(x)
                 if self.hypers.BATCH_NORM:
                     x = tf.keras.layers.BatchNormalization(renorm=True)(x, training=self.training)
             if self.hypers.NON_LINEAR:
-                x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_OUT, activation=tf.keras.activations.tanh)(x)
+                x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_OUT, activation=tf.keras.activations.tanh, kernel_regularizer=self.hypers.REGULARIZER)(x)
             else:
-                x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_OUT, activation=tf.keras.activations.relu)(x)
+                x = tf.keras.layers.Dense(self.hypers.EDGE_EMBEDDING_OUT, activation=tf.keras.activations.relu, kernel_regularizer=self.hypers.REGULARIZER)(x)
             self.bond_aug = tf.reshape(x, [batch_size, atom_number, neighbor_size, self.hypers.EDGE_EMBEDDING_OUT])
             if self.using_dataset:
                 tf.summary.histogram('bond-aug', tf.boolean_mask(self.bond_aug, self.bool_mask))
@@ -818,7 +822,7 @@ class StructGCNModel(GCNModel):
         x = tf.keras.layers.Dropout(self.dropout_rate)(self.feature_mats[-1])
         x0 = x
         for hl in range(self.hypers.FC_LAYERS - 2 if self.hypers.NON_LINEAR else self.hypers.FC_LAYERS - 1):
-            x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE, activation=None)(x)
+            x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE, activation=None, kernel_regularizer=self.hypers.REGULARIZER)(x)
             if self.hypers.BATCH_NORM:
                 x = tf.keras.layers.BatchNormalization(renorm=True)(x, training=self.training)
             if self.hypers.RESIDUE:
@@ -826,7 +830,7 @@ class StructGCNModel(GCNModel):
             x = tf.keras.layers.Dropout(self.dropout_rate, noise_shape=[batch_size, 1, self.hypers.ATOM_EMBEDDING_SIZE])(tf.keras.activations.relu(x))
         # penultimate with non-linearity (?)
         if self.hypers.NON_LINEAR:
-            x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE // 2, activation=tf.keras.activations.tanh)(x)
+            x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE // 2, activation=tf.keras.activations.tanh, kernel_regularizer=self.hypers.REGULARIZER)(x)
             if self.hypers.BATCH_NORM:
                 x = tf.keras.layers.BatchNormalization(renorm=True)(x, training=self.training)
         raw_peaks =  tf.keras.layers.Flatten()(tf.keras.layers.Dense(1)(x))

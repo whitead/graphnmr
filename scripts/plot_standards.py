@@ -89,31 +89,34 @@ def plot_model(name, hypers, data='test', progressive=False, atom=None):
         
 
 model_dir = 'struct-model-18'
-hypers = GCNHypersStandard()
-#plot_model(model_dir + '/standard', hypers, atom='H')
 
 hypers = GCNHypersStandard()
 plot_model(model_dir + '/standard-uw', hypers, atom='H')
 
 hypers = GCNHypersStandard()
-#plot_model(model_dir + '/standard-refdb', hypers, atom='H')
+plot_model(model_dir + '/standard-refdb-long', hypers, atom='H')
 
 exit()
+
+hypers = GCNHypersStandard()
+plot_model(model_dir + '/standard-uwc', hypers, atom='H')
+
+
+hypers = GCNHypersStandard()
+plot_model(model_dir + '/standard-all', hypers)
+
+
+hypers = GCNHypersStandard()
+plot_model(model_dir + '/standard-refdb', hypers, atom='H')
+
 
 hypers = GCNHypersStandard()
 hypers.NON_LINEAR = False
 plot_model(model_dir + '/linear', hypers, atom='H')
 
 hypers = GCNHypersStandard()
-plot_model(model_dir + '/dropout', hypers, atom='H')
-
-hypers = GCNHypersStandard()
 hypers.RESIDUE = False
 plot_model(model_dir + '/noresidue', hypers, atom='H')
-
-
-hypers = GCNHypersStandard()
-plot_model(model_dir + '/standard-all', hypers)
 
 
 hypers = GCNHypersStandard()
@@ -124,13 +127,10 @@ hypers = GCNHypersStandard()
 hypers.EDGE_NONBONDED = False
 plot_model(model_dir + '/noneighs', hypers, atom='H')
 
-# this is a mistaken path. Fix someday
-hypers = GCNHypersStandard()
-hypers.GCN_ACTIVATION = tf.keras.activations.softplus
-hypers.FC_ACTIVATION = tf.keras.activations.softplus
-plot_model(model_dir + '/standard-md', hypers, atom='H')
-
 hypers = GCNHypersSmall()
+plot_model(model_dir + '/standard-sm', hypers, atom='H')
+
+hypers = GCNHypersMedium()
 plot_model(model_dir + '/standard-sm', hypers, atom='H')
 
 hypers = GCNHypersTiny()
