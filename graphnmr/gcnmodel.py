@@ -723,7 +723,7 @@ class StructGCNModel(GCNModel):
                 distances = tf.clip_by_value(safe_div(1.0, distances), 0, 1)
                 tf.summary.histogram('edge-distances-features', tf.clip_by_value(distances, 0.1, 10))
                 # tile them to make more 
-                distances = tf.tile(distances[:,:,tf.newaxis], [1, 1, self.hypers.EDGE_EMBEDDING_SIZE - 1])
+            distances = tf.tile(distances[:,:,tf.newaxis], [1, 1, self.hypers.EDGE_EMBEDDING_SIZE - 1])
             # dimension is batch x atom_number  * NN x 1 + edge embed size
             self.bond_embed = tf.concat([edge_features, distances], axis=2)
 

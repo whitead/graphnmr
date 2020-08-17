@@ -96,7 +96,6 @@ plot_model(model_dir + '/standard-uw', hypers, atom='H')
 hypers = GCNHypersStandard()
 plot_model(model_dir + '/standard-refdb-long', hypers, atom='H')
 
-exit()
 
 hypers = GCNHypersStandard()
 plot_model(model_dir + '/standard-uwc', hypers, atom='H')
@@ -104,10 +103,6 @@ plot_model(model_dir + '/standard-uwc', hypers, atom='H')
 
 hypers = GCNHypersStandard()
 plot_model(model_dir + '/standard-all', hypers)
-
-
-hypers = GCNHypersStandard()
-plot_model(model_dir + '/standard-refdb', hypers, atom='H')
 
 
 hypers = GCNHypersStandard()
