@@ -96,6 +96,8 @@ plot_model(model_dir + '/standard-uw', hypers, atom='H')
 hypers = GCNHypersStandard()
 plot_model(model_dir + '/standard-refdb-long', hypers, atom='H')
 
+hypers = GCNHypersStandard()
+plot_model(model_dir + '/refdb-only', hypers, atom='H')
 
 hypers = GCNHypersStandard()
 plot_model(model_dir + '/standard-uwc', hypers, atom='H')
@@ -124,8 +126,16 @@ hypers = GCNHypersMedium()
 plot_model(model_dir + '/standard-md', hypers, atom='H')
 
 hypers = GCNHypersTiny()
-plot_model(model_dir + '/standard-tn', hypers, atom='H')
+#plot_model(model_dir + '/standard-tn', hypers, atom='H')
 
 hypers = GCNHypersStandard()
 hypers.RESIDUE = False
-plot_model(model_dir + '/noresidue', hypers, atom='H')
+#plot_model(model_dir + '/noresidue', hypers, atom='H')
+
+
+hypers = GCNHypersStandard()
+for i in range(20):
+    plot_model(model_dir + f'/curve-shift-{i}', hypers, atom='H')
+
+for i in range(20):
+    plot_model(model_dir + f'/curve-refdb-{i}', hypers, atom='H')

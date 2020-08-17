@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import os, sys
 
 DO_TRAIN = True
-CURVE_POINTS = 20
+CURVE_POINTS = 10
 
 if len(sys.argv) == 4:
     SCRATCH = sys.argv[1]
@@ -152,7 +152,7 @@ elif sys.argv[3] == 'metabolite':
 elif sys.argv[3] == 'curve-refdb':
     hypers = GCNHypersStandard()
     hypers.NUM_EPOCHS = 5
-    points = np.exp(np.linspace(np.log(0.001), np.log(0.5),10))
+    points = np.exp(np.linspace(np.log(0.001), np.log(0.5),CURVE_POINTS))
     print('Generating training curve at', points)
     for i,p in enumerate(points):
         train_model(f'struct-model-18/curve-refdb-{i}', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], skips=[1 - p], atom='H')
@@ -160,11 +160,20 @@ elif sys.argv[3] == 'curve-refdb':
 elif sys.argv[3] == 'curve-shift':
     hypers = GCNHypersStandard()
     hypers.NUM_EPOCHS = 50
-    points = np.exp(np.linspace(np.log(0.001), np.log(0.5),10))
+    points = np.exp(np.linspace(np.log(0.001), np.log(0.5),CURVE_POINTS))
     print('Generating training curve at', points)
     for i,p in enumerate(points):
         # load from standard uwc
-        train_model(f'struct-model-18/curve-shift-{i}', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], skips=[1 - p], atom='H', restart=True, preload='struct-model-18/standard-uw')
+        train_model(f'struct-model-18/curve-shift-{i}', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], skips=[1 - p], atom='H', restart=True, preload='struct-model-18/refdb-only')
+
+elif sys.argv[3] == 'curve-shift-noload':
+    hypers = GCNHypersStandard()
+    hypers.NUM_EPOCHS = 50
+    points = np.exp(np.linspace(np.log(0.001), np.log(0.5),CURVE_POINTS))
+    print('Generating training curve at', points)
+    for i,p in enumerate(points):
+        # load from standard uwc
+        train_model(f'struct-model-18/curve-shift-{i}', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], skips=[1 - p], atom='H')
     
     
 
