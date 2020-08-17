@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import os, sys
 
 DO_TRAIN = True
+CURVE_POINTS = 20
 
 if len(sys.argv) == 4:
     SCRATCH = sys.argv[1]
@@ -27,7 +28,7 @@ neighbor_number = NEIGHBOR_NUMBER
 
 skips = [0.2, 0.2] # set to be about the same numebr of shifts as the test dataset
 
-def train_model(name, hypers, filenames, learning_rates=None, restart=False, skips=skips, atom=None, patience = 5):
+def train_model(name, hypers, filenames, learning_rates=None, restart=False, skips=skips, atom=None, patience = 5, preload=None):
     print('Starting model', name)
     tf.reset_default_graph()
     counts = [count_records(f) for f in filenames]
@@ -42,14 +43,14 @@ def train_model(name, hypers, filenames, learning_rates=None, restart=False, ski
                               atom_number, neighbor_number, predict_atom=atom)
     # add learning rate
     model.build_train()
+    
     if DO_TRAIN:
         model.hypers.LEARNING_RATE = learning_rates[0]
-        model.run_train(restart=restart, patience=patience if restart else 100) # no early stop on first run
+        model.run_train(restart=restart, patience=patience if restart else 100, load_path=None if preload is None else SCRATCH + preload) # no early stop on first run
         for i, lr in enumerate(learning_rates[1:]):
             model.hypers.LEARNING_RATE = lr
             model.run_train(restart=True)
-    model.summarize_eval()
-
+    #model.summarize_eval()
 
 #1e-3 -> really big
 #1e-5 -> tuning
@@ -147,6 +148,26 @@ elif sys.argv[3] == 'metabolite':
     hypers = GCNHypersStandard()
     hypers.NUM_EPOCHS = 50
     train_model('struct-model-18/metabolite', hypers, metabolite[:1], learning_rates=[1e-1, 1e-3, 1e-4, 1e-4])
+
+elif sys.argv[3] == 'curve-refdb':
+    hypers = GCNHypersStandard()
+    hypers.NUM_EPOCHS = 5
+    points = np.exp(np.linspace(np.log(0.001), np.log(0.5),10))
+    print('Generating training curve at', points)
+    for i,p in enumerate(points):
+        train_model(f'struct-model-18/curve-refdb-{i}', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], skips=[1 - p], atom='H')
+
+elif sys.argv[3] == 'curve-shift':
+    hypers = GCNHypersStandard()
+    hypers.NUM_EPOCHS = 50
+    points = np.exp(np.linspace(np.log(0.001), np.log(0.5),10))
+    print('Generating training curve at', points)
+    for i,p in enumerate(points):
+        # load from standard uwc
+        train_model(f'struct-model-18/curve-shift-{i}', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], skips=[1 - p], atom='H', restart=True, preload='struct-model-18/standard-uw')
+    
+    
+
 
 else:
     raise InvalidArgumentError('Unkown job type')

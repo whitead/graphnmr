@@ -110,11 +110,6 @@ hypers.NON_LINEAR = False
 plot_model(model_dir + '/linear', hypers, atom='H')
 
 hypers = GCNHypersStandard()
-hypers.RESIDUE = False
-plot_model(model_dir + '/noresidue', hypers, atom='H')
-
-
-hypers = GCNHypersStandard()
 hypers.EDGE_DISTANCE = False
 plot_model(model_dir + '/nodist', hypers , atom = 'H')
 
@@ -126,8 +121,11 @@ hypers = GCNHypersSmall()
 plot_model(model_dir + '/standard-sm', hypers, atom='H')
 
 hypers = GCNHypersMedium()
-plot_model(model_dir + '/standard-sm', hypers, atom='H')
+plot_model(model_dir + '/standard-md', hypers, atom='H')
 
 hypers = GCNHypersTiny()
 plot_model(model_dir + '/standard-tn', hypers, atom='H')
 
+hypers = GCNHypersStandard()
+hypers.RESIDUE = False
+plot_model(model_dir + '/noresidue', hypers, atom='H')

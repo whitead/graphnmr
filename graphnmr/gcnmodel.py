@@ -136,15 +136,18 @@ class GCNModel:
         return {**fd, self.dropout_rate:self.hypers.DROPOUT_RATE if training else 0, self.training: training}
 
 
-    def load(self, sess, i=-1):
+    def load(self, sess, i=-1, load_path=None):
         saver = tf.train.Saver()
+        if load_path is None:
+            load_path = self.model_path
         if i < 0:
-            checkpoint = tf.train.latest_checkpoint(self.model_path)
+            checkpoint = tf.train.latest_checkpoint(load_path)
         else:
-            checkpoints = tf.train.get_checkpoint_state(self.model_path).all_model_checkpoint_paths
+            checkpoints = tf.train.get_checkpoint_state(load_path).all_model_checkpoint_paths
             if i >= len(checkpoints):
                 raise StopIteration
             checkpoint = checkpoints[i]
+        print(f'Reading checkpoint from {load_path}')
         step = int(checkpoint.split('/')[-1].split('.')[-1].split('-')[-1])
         print('Restoring checkpoint {} @ step {}'.format(checkpoint, step))
         saver.restore(sess, checkpoint)
@@ -211,7 +214,7 @@ class GCNModel:
 
 
  
-    def run_train(self, feed_dict={}, restart=False, patience=3, trailing_avg=5):
+    def run_train(self, feed_dict={}, restart=False, patience=3, trailing_avg=5, load_path = None):
         if not self.built:
             raise ValueError('Must build first')
         test_losses = []
@@ -230,7 +233,7 @@ class GCNModel:
             # create embedding visualizer
             projector.visualize_embeddings(test_writer  , self.embedding_projector_config)
             if restart:
-                self.load(sess)
+                self.load(sess, load_path=load_path)
             else:
                 init = tf.global_variables_initializer()
                 print('Initializing variables...', end='')
