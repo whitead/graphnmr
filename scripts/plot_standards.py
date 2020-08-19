@@ -91,6 +91,9 @@ def plot_model(name, hypers, data='test', progressive=False, atom=None):
 model_dir = 'struct-model-18'
 
 hypers = GCNHypersStandard()
+plot_model(model_dir + '/standard', hypers, atom='H')
+
+hypers = GCNHypersStandard()
 plot_model(model_dir + '/standard-uw', hypers, atom='H')
 
 hypers = GCNHypersStandard()
@@ -139,3 +142,6 @@ for i in range(20):
 
 for i in range(20):
     plot_model(model_dir + f'/curve-refdb-{i}', hypers, atom='H')
+
+for i in range(20):
+    plot_model(model_dir + f'/curve-shift-noload-{i}', hypers, atom='H')

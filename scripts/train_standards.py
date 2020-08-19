@@ -58,7 +58,7 @@ def train_model(name, hypers, filenames, learning_rates=None, restart=False, ski
 
 if sys.argv[3] == 'standard':
     hypers = GCNHypersStandard()
-    train_model('struct-model-18/standard', hypers, weighted_filenames[1:2], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    train_model('struct-model-18/standard', hypers, filenames[1:2], learning_rates=[1e-4, 1e-4, 1e-5], atom='H')
 
 elif sys.argv[3] == 'standard-uw':
     hypers = GCNHypersStandard()
@@ -173,7 +173,7 @@ elif sys.argv[3] == 'curve-shift-noload':
     print('Generating training curve at', points)
     for i,p in enumerate(points):
         # load from standard uwc
-        train_model(f'struct-model-18/curve-shift-{i}', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], skips=[1 - p], atom='H')
+        train_model(f'struct-model-18/curve-shift-noload-{i}', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], skips=[1 - p], atom='H')
     
     
 
