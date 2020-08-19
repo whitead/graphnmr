@@ -348,6 +348,7 @@ class GCNModel:
                             'bonds': self.adjacency,
                             'dist': self.dist_mat,
                             'nlist': self.nlist, 
+                            'nlist_grad': self.nlist_grad, 
                             'mask': self.mask,
                             'names': self.names,
                             'record_index': self.record_index,
@@ -698,8 +699,10 @@ class StructGCNModel(GCNModel):
                     mask = 1.0 - mask
                 # mask is now 1 for stuff I want to keep
                 # mask embeded
+                # TODO: CHECK THIS this tile dimensions
+                # Since I reduced embedding size to 1
                 edge_features = tf.tile(tf.reshape(mask, [batch_size, atom_number * neighbor_size, 1]), 
-                                        [1, 1, self.hypers.EDGE_EMBEDDING_SIZE - 1]) * edge_features
+                                        [1, 1, 1]) * edge_features
                 if mod_indices:
                     # mask indices now
                     # We make those with mask 0 point to special atom at end of molecule
@@ -727,7 +730,7 @@ class StructGCNModel(GCNModel):
                 tf.summary.histogram('edge-distances-features', tf.clip_by_value(distances, 0.1, 10))
                 # tile them to make more 
             distances = tf.tile(distances[:,:,tf.newaxis], [1, 1, self.hypers.EDGE_EMBEDDING_SIZE - 1])
-            # dimension is batch x atom_number  * NN x 1 + edge embed size
+            # dimension is batch x (atom_number  * NN) x (edge embed size)
             self.bond_embed = tf.concat([edge_features, distances], axis=2)
 
             # edge features includes bonded distance and distance. Bonded distance of 0 = intermolecule neighbor
@@ -853,6 +856,14 @@ class StructGCNModel(GCNModel):
         tpn = np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()])
         print('TRAINABLE PARAMETERS:', tpn)
 
-
+        # derivative
+        # something is stopping backprop
+        # so we have to do some nonsense
+        x = tf.gradients(self.peaks, self.bond_embed)[0]
+        # slice out distance grad
+        x = tf.reshape(x[:,:,-1], (batch_size, atom_number, neighbor_size))
+        # we have dp/df(r) but f(r) = 10 / r        
+        self.nlist_grad = safe_div(-10., x**2)
+        
         return self.peaks
         
