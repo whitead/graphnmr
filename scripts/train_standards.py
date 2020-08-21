@@ -68,6 +68,27 @@ elif sys.argv[3] == 'standard-uw':
     train_model('struct-model-18/standard-uw', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
 
 
+elif sys.argv[3] == 'standard-uw-rbf':
+    hypers = GCNHypersStandard()
+    hypers.EDGE_RBF = True
+    hypers.EDGE_EMBEDDING_SIZE = 128
+    hypers.EDGE_EMBEDDING_OUT = 8
+    hypers.ATOM_EMBEDDING_SIZE = 128
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/standard-uw-rbf', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-uw-rbf', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
+
+
+elif sys.argv[3] == 'standard-w':
+    hypers = GCNHypersStandard()
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/standard-w', hypers, weighted_filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-w', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
+
+
+
 elif sys.argv[3] == 'standard-uwc':
     hypers = GCNHypersStandard()
     hypers.NUM_EPOCHS = 5

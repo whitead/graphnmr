@@ -156,6 +156,47 @@ def write_peak_labels(filename, embeddings, record_info, output, batch_size=32):
             print('Dataset complete')
             pass
     return 
+
+def find_pairs(filename, embeddings, name_i, name_j, batch_size=32):
+    '''Writes peak labels from records with embedding labels
+    '''
+
+    pi = embeddings['name'][name_i]
+    pj = embeddings['name'][name_j]
+    
+    tf.reset_default_graph()
+    init_data_op, data = load_records(filename, batch_size=batch_size)    
+    print(f'Finding pairs between {name_i}({pi}) and {name_j}({pj})')
+
+    result = []
+    with tf.Session() as sess:
+        sess.run(init_data_op)
+        try:
+            count = 0
+            while True:
+                mask, peaks, name, nlist = sess.run([data['mask'], data['peaks'], data['name'], data['nlist']])
+                indices = np.nonzero(mask)
+                for b,i in zip(indices[0], indices[1]):
+                    # find particle i
+                    if name[b, i] != pi:
+                        continue
+                    p = peaks[b, i]
+                    # get names on nlist
+                    diff = (name[b, nlist[b, i, :, 1].astype(int)] - pj)**2
+                    if np.min(diff) == 0:
+                        j = np.argmin(diff)
+                        r = nlist[b, i, j, 0] 
+                        if r < 0.0001:
+                            continue
+                        result.append([r, p, peaks[b, j]])
+                        count += 1
+                    print(f'\rCounting pairs...{count} last={result[-1] if count > 0 else ...}', end='')
+        except tf.errors.OutOfRangeError:
+            print('Dataset complete')
+            pass
+    return result
+    
+
     
 def duplicate_labels(filename, embeddings, record_info, batch_size=32, atom_filter='H'):
     '''Finds duplicate labels (same PDB) in record

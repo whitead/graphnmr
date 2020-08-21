@@ -5,6 +5,7 @@ from tensorflow.contrib.tensorboard.plugins import projector
 import tqdm
 from .data import data_parse
 from .losses import *
+from .layers import *
 
 
 def safe_div(numerator, denominator, name='graphbuild-safe-div'):
@@ -30,6 +31,7 @@ class GCNHypers:
     def __init__(self):
         self.ATOM_EMBEDDING_SIZE =  16 #Size of space onto which we project elements
         self.EDGE_EMBEDDING_SIZE = 4 #size of space onto which we poject bonds (single, double, etc.)
+        self.EDGE_RBF = False #size of space onto which we poject bonds (single, double, etc.)
         self.EDGE_EMBEDDING_OUT = 4 # what size edges are used in final model
         self.BATCH_SIZE = 32 #Amount of data we process at a time, in units of molecules (not atoms!)
         self.STACKS = 4 #Number of layers in graph convolution
@@ -55,7 +57,7 @@ class GCNHypers:
         self.EDGE_NONBONDED = True
         self.EDGE_LONG_BOND = True
         self.REGULARIZER = tf.keras.regularizers.L1L2(l2=0.0)
-        self.PEAK_CLIP = 500 # clip peaks at this. Some garbage data always gets through it seems. 
+        self.PEAK_CLIP = 500 # clip peaks at this. Some garbage data always gets through it seems.
 
 class GCNModel:
     def __init__(self, model_path, embedding_dicts, peak_standards, hypers = None):
@@ -71,7 +73,7 @@ class GCNModel:
         self.global_steps = 0
 
     def build_from_datasets(self, datasets, dataset_choices=None, shuffle=10000, *args, **kw_args):
-        
+
         print('Building from datasets {}. Will shuffle with buffer {}...'.format(datasets, shuffle), end='')
         # datasets should be tuples with train, test
         train_dataset = datasets[0][0]
@@ -112,7 +114,7 @@ class GCNModel:
         self.build(atom_inputs, bond_inputs, *args, **kw_args)
 
     def build_from_dataset(self, filename, gzip, *args, **kw_args):
-        
+
         tf_dataset = tf.data.TFRecordDataset([filename], compression_type='GZIP' if gzip else None).map(data_parse).batch(self.hypers.BATCH_SIZE)
 
         # Now we make an iterator which allows us to view different batches of data
@@ -165,9 +167,10 @@ class GCNModel:
         # get things to regularize outside of keras
         # hide it when not training in case we're assessing test loss
         reg_penalty = tf.cast(self.training, tf.float32) * tf.reduce_sum([self.hypers.REGULARIZER(v) for v in self.weights])
+        #reg_penalty = tf.cast(self.training, tf.float32) * tf.reduce_mean(self.hypers.REGULARIZER(self.nlist_grad))
 
         with tf.control_dependencies([update_op]):
-            # divide by clip to normalize 
+            # divide by clip to normalize
             self.loss = self.hypers.LOSS_FUNCTION(labels=self.peak_labels, predictions=self.peaks, weights=self.mask) + reg_penalty
             optimizer = tf.train.AdamOptimizer(self.hypers.LEARNING_RATE)
             #gvs =  optimizer.compute_gradients(self.loss)
@@ -201,7 +204,7 @@ class GCNModel:
         pe = self.embedding_projector_config.embeddings.add()
         pe.tensor_name = self.atom_embeddings.name
         pe.metadata_path = 'embeddings/atom.tsv'
-        
+
         # Look at histograms
         if histogram_peak_names:
             tf.summary.histogram('atom-names', self.names)
@@ -213,7 +216,7 @@ class GCNModel:
                 tf.summary.histogram(k + '-error', tf.boolean_mask(self.peaks - self.peak_labels, net_mask))
 
 
- 
+
     def run_train(self, feed_dict={}, restart=False, patience=3, trailing_avg=5, load_path = None):
         if not self.built:
             raise ValueError('Must build first')
@@ -278,24 +281,24 @@ class GCNModel:
                                 print('No more patience, stopping')
                                 break
                             else:
-                                print(f'Being patient {cur_patience} more times')                                
-                        else:                            
+                                print(f'Being patient {cur_patience} more times')
+                        else:
                             print(f'Improved, Patience was {cur_patience}')
-                            cur_patience = patience                    
+                            cur_patience = patience
                     # only write summary on save periods.
                     test_writer.add_summary(test_summary, self.global_steps)
                     # save another one for the embedding projector (but overwrite)
                     saver.save(sess, self.model_path + '/logdir/test/model.ckpt', 0)
                     print(epoch, 'test:' ,test_losses[-1], 'train:', train_losses[-1])
                     # restart training op
-                    sess.run([self.train_init_op, self.reset_counts])                    
+                    sess.run([self.train_init_op, self.reset_counts])
         print('Molecules observed: ', self.global_steps)
         print('Class proportion: [class] [test] [train]')
         for k,c,ct in zip(self.embedding_dicts['class'].keys(), self.test_counts, self.train_counts):
             print('\t', k, c / sum(self.test_counts), ct / sum(self.train_counts))
 
 
-    def eval_train(self, feed_dict={}, checkpoint_index=-1):        
+    def eval_train(self, feed_dict={}, checkpoint_index=-1):
         predict = []
         out_atoms = []
         out_labels = []
@@ -337,7 +340,7 @@ class GCNModel:
             self.load(sess)
             if self.using_dataset:
                 sess.run(self.test_init_op)
-            # hope it's not repeated!            
+            # hope it's not repeated!
             try:
                 print('Evaluating test data: ', end='')
                 N = 0
@@ -347,8 +350,8 @@ class GCNModel:
                             'peaks': self.peaks,
                             'bonds': self.adjacency,
                             'dist': self.dist_mat,
-                            'nlist': self.nlist, 
-                            'nlist_grad': self.nlist_grad, 
+                            'nlist': self.nlist,
+                            'nlist_grad': self.nlist_grad,
                             'mask': self.mask,
                             'names': self.names,
                             'record_index': self.record_index,
@@ -359,7 +362,7 @@ class GCNModel:
                             'bond_aug': self.bond_aug,
                             'F0': self.feature_mats[0],
                             'F1': self.feature_mats[1],
-                            'FL': self.feature_mats[-1]                    
+                            'FL': self.feature_mats[-1]
                         },
                                   feed_dict=self._feed_dict(feed_dict, False)))
                     N += 1
@@ -447,17 +450,17 @@ class GCNModel:
         raise NotImplementedError()
 
     def summarize_eval(self, feed_dict={}, test_data=False, plot_dir_name=None, checkpoint_index=-1, classes=True):
-    
-        
+
+
         import matplotlib.pyplot as plt
         import os
 
-        predict, labels, atoms, class_label, names = self.eval_train(feed_dict, checkpoint_index) 
+        predict, labels, atoms, class_label, names = self.eval_train(feed_dict, checkpoint_index)
         predict, labels, atoms, class_label, names = np.array(predict), np.array(labels), np.array(atoms), np.array(class_label), np.array(names)
 
         # do clipping we do for training
         labels = np.clip(labels, 0, self.hypers.PEAK_CLIP)
-        
+
         if plot_dir_name is None:
             if not test_data:
                 plot_dir = self.model_path + '/plots/'
@@ -479,7 +482,7 @@ class GCNModel:
             corr = np.corrcoef(fit_labels, fit_predict)[0,1]
             N = len(fit_labels)
             plt.figure(figsize=(5,4))
-            if len(np.unique(fit_class) > 5):                                
+            if len(np.unique(fit_class) > 5):
                 plt.scatter(fit_labels, fit_predict, marker='o', s=6, alpha=0.5, linewidth=0)
             else:
                 plt.scatter(fit_labels, fit_predict, marker='o', s=6, alpha=0.5, linewidth=0,
@@ -493,7 +496,7 @@ class GCNModel:
             plt.xlabel('Measured Shift [ppm]')
             plt.ylabel('Predicted Shift [ppm]')
             #plt.savefig(plot_dir + title + '-nostats' + plot_suffix, dpi=300)
-            plt.title(title + ': RMSD = {:.4f}. MAE = {:.4f} R^2 = {:.4f}. N={}'.format(rmsd,mae, corr**2, N), fontdict={'fontsize': 8})            
+            plt.title(title + ': RMSD = {:.4f}. MAE = {:.4f} R^2 = {:.4f}. N={}'.format(rmsd,mae, corr**2, N), fontdict={'fontsize': 8})
             plt.savefig(plot_dir + title + plot_suffix, dpi=300)
             plt.close()
             return {'corr-coeff': corr, 'R^2': corr**2, 'MAE': mae, 'RMSD': rmsd, 'N': N, 'title': title, 'plot': plot_dir + title + '.png'}
@@ -549,7 +552,7 @@ class GCNModel:
              l = labels[mask]
              c = class_label[mask]
              results.append(plot_fit(l, p, c, 'names/' + k))
-        
+
         plt.figure(figsize=(5,4))
         plt.hist(np.abs(predict - labels), bins=1000)
         plt.savefig(plot_dir + 'peak-error' + plot_suffix, dpi=300)
@@ -557,8 +560,8 @@ class GCNModel:
         # return top 1 error for convienence
         top1 = np.quantile(np.abs(predict - labels), q=[0.99])
         return top1[0], results
-        
-    
+
+
     def plot_examples(self, atom_number, cutoff, number, feed_dict={}):
         import networkx as nx
         import matplotlib.pyplot as plt
@@ -602,7 +605,7 @@ class GCNModel:
                 if atom_number - 1 in g.nodes:
                     g.remove_node(atom_number - 1)
                 c = [color_fit(g,n,viridis, 0, vmax) for n in g.nodes]
-            
+
                 # now remove all non single-bond edges
                 remove = []
                 for e in g.edges(data=True):
@@ -669,7 +672,7 @@ class StructGCNModel(GCNModel):
 
         if self.hypers.EDGE_EMBEDDING_SIZE < 2:
             raise ValueError('Edge embedding must be at least size 2')
-            
+
 
         # create learned adjacency matrix
         batch_size = tf.shape(features)[0]
@@ -678,7 +681,7 @@ class StructGCNModel(GCNModel):
                         name='edge-embedding',
                         initializer=tf.random_uniform(
                             [
-                                len(self.embedding_dicts['nlist']), 
+                                len(self.embedding_dicts['nlist']),
                                 1
                             ],
                             -1, 1))
@@ -701,7 +704,7 @@ class StructGCNModel(GCNModel):
                 # mask embeded
                 # TODO: CHECK THIS this tile dimensions
                 # Since I reduced embedding size to 1
-                edge_features = tf.tile(tf.reshape(mask, [batch_size, atom_number * neighbor_size, 1]), 
+                edge_features = tf.tile(tf.reshape(mask, [batch_size, atom_number * neighbor_size, 1]),
                                         [1, 1, 1]) * edge_features
                 if mod_indices:
                     # mask indices now
@@ -714,22 +717,27 @@ class StructGCNModel(GCNModel):
                 edge_features, flat_edge_indices = modify_bond_type(edge_features, flat_edge_indices, 'nonbonded', False)
             if not self.hypers.EDGE_LONG_BOND:
                 edge_features, flat_edge_indices = modify_bond_type(edge_features, flat_edge_indices,1, False)
-            # we must remove all the extra zeros rows 
-            # so they don't accidentally create interactions with 
+            # we must remove all the extra zeros rows
+            # so they don't accidentally create interactions with
             # atom 0
             edge_features, flat_edge_indices = modify_bond_type(edge_features, flat_edge_indices, 'none', True, False)
 
             # convert from nm to angstrom (for plotting/analysis purposes)
             distances = flat_edges[:, :, 0] * 10
+            tf.summary.histogram('edge-distances', tf.clip_by_value(distances, 0.1, 100))
+            # distances is now B x (AN * NN)
             if not self.hypers.EDGE_DISTANCE:
                 distances = tf.zeros_like(distances)
+            elif self.hypers.EDGE_RBF:
+                rbf_expander = RBFExpansion(0,20, self.hypers.EDGE_EMBEDDING_SIZE - 1)
+                distances = rbf_expander(distances)
             else:
-                tf.summary.histogram('edge-distances', tf.clip_by_value(distances, 0.1, 100))
                 # make them run from 0 (far) to 1 (close)
                 distances = tf.clip_by_value(safe_div(1.0, distances), 0, 1)
-                tf.summary.histogram('edge-distances-features', tf.clip_by_value(distances, 0.1, 10))
-                # tile them to make more 
-            distances = tf.tile(distances[:,:,tf.newaxis], [1, 1, self.hypers.EDGE_EMBEDDING_SIZE - 1])
+                # tile them to make more
+                distances = tf.tile(distances[:,:,tf.newaxis], [1, 1, self.hypers.EDGE_EMBEDDING_SIZE - 1])
+
+            tf.summary.histogram('edge-distances-features', distances[...,0])
             # dimension is batch x (atom_number  * NN) x (edge embed size)
             self.bond_embed = tf.concat([edge_features, distances], axis=2)
 
@@ -763,8 +771,8 @@ class StructGCNModel(GCNModel):
             edge_atom_indices = tf.tile(tf.reshape(tf.range(atom_number), [1, -1, 1, 1]), [batch_size, 1, neighbor_size, 1])
             # gather we need -1 x 3, where last shape = [batch_index, a1_index, a2_index]
             adj_edge_indices = tf.concat([full_edge_indices, edge_atom_indices], axis=-1)
-            # our index is 
-            all_adjacency = tf.scatter_nd(tf.reshape(adj_edge_indices, [-1,3]), 
+            # our index is
+            all_adjacency = tf.scatter_nd(tf.reshape(adj_edge_indices, [-1,3]),
                                            tf.reshape(tf.cast(flat_edges[:,:,2], tf.int32), [batch_size * atom_number * neighbor_size]),
                                            [batch_size, atom_number, atom_number])
             # only get things which are single bonded
@@ -846,7 +854,7 @@ class StructGCNModel(GCNModel):
         for k,v in self.peak_standards.items():
             peak_std[k] = v[2]
             peak_avg[k] = v[1]
-        
+
         self.peaks = raw_peaks * tf.nn.embedding_lookup(peak_std, features) + tf.nn.embedding_lookup(peak_avg, features)
         self.built = True
 
@@ -862,8 +870,7 @@ class StructGCNModel(GCNModel):
         x = tf.gradients(self.peaks, self.bond_embed)[0]
         # slice out distance grad
         x = tf.reshape(x[:,:,-1], (batch_size, atom_number, neighbor_size))
-        # we have dp/df(r) but f(r) = 10 / r        
+        # we have dp/df(r) but f(r) = 10 / r
         self.nlist_grad = safe_div(-10., x**2)
-        
+
         return self.peaks
-        
