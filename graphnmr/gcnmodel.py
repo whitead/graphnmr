@@ -33,6 +33,7 @@ class GCNHypers:
         self.EDGE_EMBEDDING_SIZE = 4 #size of space onto which we poject bonds (single, double, etc.)
         self.EDGE_RBF = False #size of space onto which we poject bonds (single, double, etc.)
         self.EDGE_EMBEDDING_OUT = 4 # what size edges are used in final model
+        self.EMBEDDINGS_OUT = False 
         self.BATCH_SIZE = 32 #Amount of data we process at a time, in units of molecules (not atoms!)
         self.STACKS = 4 #Number of layers in graph convolution
         self.FC_LAYERS = 3
@@ -56,7 +57,7 @@ class GCNHypers:
         self.EDGE_DISTANCE = True
         self.EDGE_NONBONDED = True
         self.EDGE_LONG_BOND = True
-        self.REGULARIZER = tf.keras.regularizers.L1L2(l2=0.0)
+        self.REGULARIZER = None #tf.keras.regularizers.L1L2(l2=0.0)
         self.PEAK_CLIP = 500 # clip peaks at this. Some garbage data always gets through it seems.
 
 class GCNModel:
@@ -166,7 +167,10 @@ class GCNModel:
         self.reset_counts = class_counts.assign(tf.zeros_like(class_counts))
         # get things to regularize outside of keras
         # hide it when not training in case we're assessing test loss
-        reg_penalty = tf.cast(self.training, tf.float32) * tf.reduce_sum([self.hypers.REGULARIZER(v) for v in self.weights])
+        if self.hypers.REGULARIZER:
+            reg_penalty = tf.cast(self.training, tf.float32) * tf.reduce_sum([self.hypers.REGULARIZER(v) for v in self.weights])
+        else:
+            reg_penalty = 0.0
         #reg_penalty = tf.cast(self.training, tf.float32) * tf.reduce_mean(self.hypers.REGULARIZER(self.nlist_grad))
 
         with tf.control_dependencies([update_op]):
@@ -235,13 +239,13 @@ class GCNModel:
             test_writer = tf.summary.FileWriter(self.model_path + '/logdir/test')
             # create embedding visualizer
             projector.visualize_embeddings(test_writer  , self.embedding_projector_config)
+            init = tf.global_variables_initializer()
+            print('Initializing variables...', end='')
+            sess.run(init)
+            print('done')
             if restart:
                 self.load(sess, load_path=load_path)
-            else:
-                init = tf.global_variables_initializer()
-                print('Initializing variables...', end='')
-                sess.run(init)
-                print('done')
+
             sess.run([self.train_init_op, self.reset_counts])
             single_iter_count = 0
             for epoch in range(self.hypers.NUM_EPOCHS):
@@ -370,6 +374,31 @@ class GCNModel:
             except tf.errors.OutOfRangeError:
                 print('')
         return result
+
+    def time_peaks(self, feed_dict={}):
+        import timeit
+        saver = tf.train.Saver()
+        result = []
+
+        with tf.Session() as sess:
+            self.load(sess)
+            if self.using_dataset:
+                sess.run(self.test_init_op)
+            # hope it's not repeated!
+            try:
+                start_time = timeit.default_timer()
+                N = 0
+                while True:
+                    sess.run(
+                            self.peaks,
+                            feed_dict=self._feed_dict(feed_dict, False))
+                    N += 1
+            except tf.errors.OutOfRangeError:
+                elapsed = timeit.default_timer() - start_time
+
+        print(f'Elapsed time: {elapsed}. Time per record {elapsed / N}. '
+              f'Time per peak {elapsed / N / self.hypers.BATCH_SIZE}')
+
 
     def to_networkx(self, number=16, feed_dict = {}):
         import networkx as nx
@@ -646,7 +675,7 @@ class GCNModel:
         plt.close()
 
 class StructGCNModel(GCNModel):
-    def build(self, features, nlist, atom_number, neighbor_size, predict_atom='H'):
+    def build(self, features, nlist, atom_number, neighbor_size, predict_atom='H', add_gradients=True):
         print('Building with ')
         for k,v in self.hypers.__dict__.items():
             print('\t',k, ':', v)
@@ -723,17 +752,17 @@ class StructGCNModel(GCNModel):
             edge_features, flat_edge_indices = modify_bond_type(edge_features, flat_edge_indices, 'none', True, False)
 
             # convert from nm to angstrom (for plotting/analysis purposes)
-            distances = flat_edges[:, :, 0] * 10
-            tf.summary.histogram('edge-distances', tf.clip_by_value(distances, 0.1, 100))
+            input_distances = flat_edges[:, :, 0] * 10
+            tf.summary.histogram('edge-distances', tf.clip_by_value(input_distances, 0.1, 100))
             # distances is now B x (AN * NN)
             if not self.hypers.EDGE_DISTANCE:
-                distances = tf.zeros_like(distances)
+                distances = tf.zeros_like(input_distances)
             elif self.hypers.EDGE_RBF:
-                rbf_expander = RBFExpansion(0,20, self.hypers.EDGE_EMBEDDING_SIZE - 1)
-                distances = rbf_expander(distances)
+                rbf_expander = RBFExpansion(1.5,8, self.hypers.EDGE_EMBEDDING_SIZE - 1)
+                distances = rbf_expander(input_distances)
             else:
                 # make them run from 0 (far) to 1 (close)
-                distances = tf.clip_by_value(safe_div(1.0, distances), 0, 1)
+                distances = tf.clip_by_value(safe_div(1.0, input_distances), 0, 1)
                 # tile them to make more
                 distances = tf.tile(distances[:,:,tf.newaxis], [1, 1, self.hypers.EDGE_EMBEDDING_SIZE - 1])
 
@@ -847,7 +876,7 @@ class StructGCNModel(GCNModel):
             x = tf.keras.layers.Dense(self.hypers.ATOM_EMBEDDING_SIZE // 2, activation=tf.keras.activations.tanh, kernel_regularizer=self.hypers.REGULARIZER)(x)
             if self.hypers.BATCH_NORM:
                 x = tf.keras.layers.BatchNormalization(renorm=True)(x, training=self.training)
-        raw_peaks =  tf.keras.layers.Flatten()(tf.keras.layers.Dense(1)(x))
+
         # now expand to match range of peaks
         peak_std = np.ones(len(self.embedding_dicts['atom']), dtype=np.float32)
         peak_avg = np.zeros(len(self.embedding_dicts['atom']), dtype=np.float32)
@@ -855,7 +884,22 @@ class StructGCNModel(GCNModel):
             peak_std[k] = v[2]
             peak_avg[k] = v[1]
 
-        self.peaks = raw_peaks * tf.nn.embedding_lookup(peak_std, features) + tf.nn.embedding_lookup(peak_avg, features)
+        # output as many feature possibilities as there are
+        # then select
+        if self.hypers.EMBEDDINGS_OUT:
+            dim_size = len(self.embedding_dicts['atom'])
+            peak_params = tf.keras.layers.Dense(dim_size, name='feature-dense-out')(x)
+            # peak params in B x N x F
+            oh = tf.one_hot(self.features, depth=dim_size)
+            # one hot features in B x N x F
+            # peak_std/avg are F
+            # the one hot will remove all but one peak, then sum
+            self.peaks = tf.reduce_sum(peak_params * oh * peak_std + oh * peak_avg, axis=-1)
+        else:
+            raw_peaks =  tf.keras.layers.Flatten()(tf.keras.layers.Dense(1)(x))
+            self.peaks = raw_peaks * tf.nn.embedding_lookup(peak_std, features) + tf.nn.embedding_lookup(peak_avg, features)
+
+
         self.built = True
 
         # to be consistent with other methods, must have something here
@@ -864,13 +908,15 @@ class StructGCNModel(GCNModel):
         tpn = np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()])
         print('TRAINABLE PARAMETERS:', tpn)
 
-        # derivative
-        # something is stopping backprop
-        # so we have to do some nonsense
-        x = tf.gradients(self.peaks, self.bond_embed)[0]
-        # slice out distance grad
-        x = tf.reshape(x[:,:,-1], (batch_size, atom_number, neighbor_size))
-        # we have dp/df(r) but f(r) = 10 / r
-        self.nlist_grad = safe_div(-10., x**2)
+            # derivative
+            # Will get back a (B x N) of (N x NN)
+            # TODO -> you need to decide if you want 
+            # to get the ridiculous B x N x N x NN  shape
+            # or cut down to non-zero peaks
+            # or get a prefactor and reduce to get net
+            #dp_dr = tf.map_fn(lambda p: tf.gradients(self.peaks, input_distances)
+            #print(x)
+            #self.nlist_grad = tf.reshape(x, (batch_size, atom_number, neighbor_size))
+        self.nlist_grad = tf.no_op()
 
         return self.peaks

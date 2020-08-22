@@ -10,5 +10,8 @@ class RBFExpansion:
 
     def __call__(self, d):
         # input shpe
-        rbf = tf.map_fn(lambda x: tf.math.exp(-(x - self.centers)**2 / self.gap), tf.reshape(d, (-1,)))
+        x = tf.reshape(d, (-1,))
+        rbf = tf.math.exp(-(x[:,tf.newaxis] - self.centers)**2 / self.gap)
+        # remove 0s
+        rbf *= tf.cast(x > 1e-5, tf.float32)[:,tf.newaxis]
         return tf.reshape(rbf, tf.concat((tf.shape(d), self.centers.shape), axis=0))

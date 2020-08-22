@@ -17,17 +17,17 @@ else:
 embedding_dicts = load_embeddings(os.path.join(DATA_DIR,'embeddings.pb'))
 
 # read data from this file
-filenames = [os.path.join(DATA_DIR,f'train-structure-protein-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord')]
+filenames = [os.path.join(DATA_DIR,f'train-structure-protein-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}-weighted.tfrecord')]
 #filenames = [DATA_DIR + f'train-structure-metabolite-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord']
 
 
-skips = [25000]
+skips = [10000]
 
 atom_number = MAX_ATOM_NUMBER
 neighbor_number = NEIGHBOR_NUMBER
 
 hypers = GCNHypersStandard()
-hypers.NUM_EPOCHS = 256
+hypers.NUM_EPOCHS = 2000
 
 def train_model(name, hypers):
     tf.reset_default_graph()
@@ -53,7 +53,7 @@ for i,e in enumerate(embeds):
     for j,s in enumerate(stacks):
         hypers.STACKS = s
         hypers.ATOM_EMBEDDING_SIZE = e
-        p,l,c,n = train_model('struct-model-11/hypers-{}-{}'.format(e,s), hypers)
+        p,l,c,n = train_model('struct-model-13/hypers-{}-{}'.format(e,s), hypers)
         p = np.array(p)
         l = np.array(l)
         ax = axs[i, j]

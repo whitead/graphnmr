@@ -72,12 +72,58 @@ elif sys.argv[3] == 'standard-uw-rbf':
     hypers = GCNHypersStandard()
     hypers.EDGE_RBF = True
     hypers.EDGE_EMBEDDING_SIZE = 128
-    hypers.EDGE_EMBEDDING_OUT = 8
-    hypers.ATOM_EMBEDDING_SIZE = 128
+    #hypers.EDGE_EMBEDDING_OUT = 4
+    #hypers.ATOM_EMBEDDING_SIZE = 256
     hypers.NUM_EPOCHS = 5
     train_model('struct-model-18/standard-uw-rbf', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
     hypers.NUM_EPOCHS = 50
     train_model('struct-model-18/standard-uw-rbf', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
+
+elif sys.argv[3] == 'standard-w-rbf':
+    hypers = GCNHypersStandard()
+    hypers.EDGE_RBF = True
+    hypers.EDGE_EMBEDDING_SIZE = 128
+    #hypers.EDGE_EMBEDDING_OUT = 4
+    #hypers.ATOM_EMBEDDING_SIZE = 256
+    hypers.NUM_EPOCHS = 5
+    #train_model('struct-model-18/standard-w-rbf', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5])
+    hypers.NUM_EPOCHS = 50
+    #train_model('struct-model-18/standard-w-rbf', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], restart=True)
+    train_model('struct-model-18/standard-w-rbf', hypers, weighted_filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5])
+
+
+elif sys.argv[3] == 'standard-uw-rbf-md':
+    hypers = GCNHypersMedium()
+    hypers.EDGE_RBF = True
+    hypers.EDGE_EMBEDDING_SIZE = 128
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/standard-uw-rbf-md', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-uw-rbf-md', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
+
+
+elif sys.argv[3] == 'standard-uw-rbf-ef':
+    hypers = GCNHypersStandard()
+    hypers.EDGE_RBF = True
+    hypers.EDGE_EMBEDDING_SIZE = 128
+    hypers.EDGE_EMBEDDING_OUT = 8
+    hypers.ATOM_EMBEDDING_SIZE = 64
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/standard-uw-rbf-ef', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5], atom='H')
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-uw-rbf-ef', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], atom='H', restart=True)
+
+elif sys.argv[3] == 'standard-uw-rbf-all':
+    hypers = GCNHypersStandard()
+    hypers.EDGE_RBF = True
+    hypers.NUM_EPOCHS = 5
+    hypers.EDGE_EMBEDDING_SIZE = 128
+    train_model('struct-model-18/standard-uw-rbf-all', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5])
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-uw-rbf-all', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], restart=True)
+
+
+
 
 
 elif sys.argv[3] == 'standard-w':
@@ -109,6 +155,24 @@ elif sys.argv[3] == 'standard-all':
     train_model('struct-model-18/standard-all', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5])
     hypers.NUM_EPOCHS = 50
     train_model('struct-model-18/standard-all', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], restart=True)
+
+elif sys.argv[3] == 'standard-all-extend':
+    hypers = GCNHypersStandard()
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-all-extend', hypers, filenames[1:2], learning_rates=[1e-5], restart=True, preload='struct-model-18/standard-all')
+
+
+
+elif sys.argv[3] == 'standard-all2':
+    hypers = GCNHypersStandard()
+    hypers.EMBEDDINGS_OUT = True
+    hypers = GCNHypersStandard()
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/standard-all2', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5])
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-all2', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], restart=True)
+
+
 
 elif sys.argv[3] == 'standard-md':
     hypers = GCNHypersMedium()

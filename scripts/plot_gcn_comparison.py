@@ -28,7 +28,8 @@ def test_gcn(embed, stacks):
     tf.reset_default_graph()
     #process it into types defined above and then we shuffle the data
     dataset = tf.data.TFRecordDataset(filenames).shuffle(10000).map(_parse_function)
-    train_model = GCNModel(SCRATCH + 'comparison-model', embedding_dicts)
+    hypers = GCNHypersStandard()
+    train_model = GCNModel(SCRATCH + 'comparison-model', embedding_dicts, hypers)
     atom_number = tf.placeholder(dtype=tf.int32, shape=[])
     train_model.hypers.NUM_EPOCHS = 51
     train_model.hypers.NUM_BATCHES = 64

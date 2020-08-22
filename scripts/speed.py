@@ -18,10 +18,7 @@ atom_number = MAX_ATOM_NUMBER
 neighbor_number = NEIGHBOR_NUMBER
 
 hypers = GCNHypersStandard()
-hypers.BATCH_SIZE = 1
-hypers.BATCH_NORM = False
-hypers.EMBEDDINGS_OUT = True
-model_name = 'nmrstruct-model-18/standard-all2'
+model_name = 'nmrstruct-model-18/standard-all'
 
 #hypers.EDGE_RBF = True
 #hypers.EDGE_EMBEDDING_SIZE = 128
@@ -35,8 +32,6 @@ model_name = 'nmrstruct-model-18/standard-all2'
 print('Preparing model', model_name)
 tf.reset_default_graph()
 model = StructGCNModel(SCRATCH + model_name, embedding_dicts, peak_standards, hypers)
-model.build_from_dataset(sys.argv[3], gzip=False, atom_number=atom_number, neighbor_size=neighbor_number)
-results = model.eval()
-with open('evaluation.pb', 'wb') as f:
-    pickle.dump(results, f)
+model.build_from_dataset(sys.argv[3], gzip=True, atom_number=atom_number, neighbor_size=neighbor_number)
+model.time_peaks()
 

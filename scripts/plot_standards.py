@@ -91,10 +91,50 @@ def plot_model(name, hypers, data='test', progressive=False, atom=None):
 model_dir = 'struct-model-18'
 
 hypers = GCNHypersStandard()
-plot_model(model_dir + '/standard', hypers, atom='H')
+hypers.EMBEDDINGS_OUT = True
+plot_model(model_dir + '/standard-all2', hypers)
+
+exit()
+
+hypers = GCNHypersStandard()
+hypers.EDGE_RBF = True
+hypers.EDGE_EMBEDDING_SIZE = 128
+#hypers.EDGE_EMBEDDING_OUT = 8
+#hypers.ATOM_EMBEDDING_SIZE = 128
+plot_model(model_dir + '/standard-uw-rbf', hypers, atom='H')
+plot_model(model_dir + '/standard-w-rbf', hypers)
+
+
+
+hypers = GCNHypersStandard()
+hypers.EDGE_RBF = True
+hypers.EDGE_EMBEDDING_SIZE = 128
+hypers.EDGE_EMBEDDING_OUT = 8
+hypers.ATOM_EMBEDDING_SIZE = 64
+plot_model(model_dir + '/standard-uw-rbf-ef', hypers, atom='H')
+
+
+hypers = GCNHypersStandard()
+hypers.EDGE_RBF = True
+hypers.EDGE_EMBEDDING_SIZE = 128
+plot_model(model_dir + '/standard-uw-rbf-all', hypers)
+
+
+exit()
+
+
+hypers = GCNHypersStandard()
+plot_model(model_dir + '/standard-all', hypers)
+
+hypers = GCNHypersStandard()
+plot_model(model_dir + '/standard-w', hypers, atom='H')
 
 hypers = GCNHypersStandard()
 plot_model(model_dir + '/standard-uw', hypers, atom='H')
+
+
+hypers = GCNHypersStandard()
+plot_model(model_dir + '/standard', hypers, atom='H')
 
 hypers = GCNHypersStandard()
 plot_model(model_dir + '/standard-refdb-long', hypers, atom='H')
@@ -105,9 +145,6 @@ plot_model(model_dir + '/refdb-only', hypers, atom='H')
 hypers = GCNHypersStandard()
 plot_model(model_dir + '/standard-uwc', hypers, atom='H')
 
-
-hypers = GCNHypersStandard()
-plot_model(model_dir + '/standard-all', hypers)
 
 
 hypers = GCNHypersStandard()
