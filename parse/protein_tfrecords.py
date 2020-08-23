@@ -16,13 +16,10 @@ from graphnmr import *
 
 MA_LOST_FRAGS = 0
 
-def process_corr(path, debug, shiftx_style):
+def pyparse_corr(path, shiftx_style):
     with open(path, 'r') as f:
         peaks = []
-        sequence_map = {}
-        sequence = []
         entry_lines = False
-        mapping_mode = None
         index = 0
         last_id = -1
         for line in f.readlines():
@@ -47,9 +44,16 @@ def process_corr(path, debug, shiftx_style):
                     last_id = rid
                 peaks[-1][name] = shift
                 peaks[-1]['index'] = srid
+    return peaks
+
+def process_corr(path, debug, shiftx_style):
+
+    peaks = pyparse_corr(path, shiftx_style)
 
     if len(peaks) == 0:
         raise ValueError('Could not parse file')
+
+    sequence_map = {}
 
     # sequence map -> key is residue index, output is peak index 
     # want it to start from 0, since we'll get offset with alignment
@@ -74,6 +78,17 @@ def process_corr(path, debug, shiftx_style):
             sequence[i] = peaks[sequence_map[i]]['name']
 
     return peaks,sequence_map,sequence
+
+
+def process_corr2(path, debug, shiftx_style):
+    # Maybe someday use these?
+    entry15000 = pynmrstar.Entry.from_file(path, convert_data_types=True)
+    peaks = {}
+    for chemical_shift_loop in entry15000.get_loops_by_category("Atom_chem_shift"):
+        cs_result_sets.append(chemical_shift_loop.get_tag(['Comp_index_ID', 'Comp_ID', 'Atom_ID', 'Atom_type', 'Val', 'Val_err']))
+    # now parse out
+    
+
 
 def align(seq1, seq2, debug=False):
     flat1 = seq.seq1(''.join(seq1)).replace('X', '-')
@@ -106,7 +121,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                 gsd_file, embedding_dicts, NN, nlist_model,
                 keep_residues=[-1, 1],
                 debug=False, units = unit.nanometer, frame_number=3, model_index=0,
-                log_file=None, shiftx_style = False):
+                log_file=None, shiftx_style = True):
     
     global MA_LOST_FRAGS
     if shiftx_style:
@@ -255,7 +270,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
             # Z-DISABLED
             #atoms[-1] = embedding_dicts['atom']['Z']
             mask = np.zeros( (max_atoms), dtype=np.float)
-            bonds = np.zeros( (BOND_MAX, max_atoms, max_atoms), dtype=np.int64)
+            bonds = np.zeros( (max_atoms, max_atoms), dtype=np.int64)
             # nlist:
             # :,:,0 -> distance
             # :,:,1 -> neighbor index
@@ -341,17 +356,13 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
             for rj in consider:
                 residue = residues[rj]
                 for b in residue.bonds():
-                    # use distance as bond
+                    # set bonds
                     try:
-                        bonds[0,rmap[b.atom1.index], rmap[b.atom2.index]] = 1
-                        bonds[0,rmap[b.atom2.index], rmap[b.atom1.index]] = 1
+                        bonds[rmap[b.atom1.index], rmap[b.atom2.index]] = 1
+                        bonds[rmap[b.atom2.index], rmap[b.atom1.index]] = 1
                     except KeyError:
                         # for bonds that cross residue
                         pass
-            # bonds contains 1 neighbors, 2 neighbors, etc where "1" means 1 bond away and "2" means two bonds away
-            for bi in range(1, BOND_MAX):
-                bonds[bi, :, :] = (np.matmul(bonds[0, :, :], bonds[bi - 1, :, :])) > 0
-
             for rj in consider:
                 residue = residues[rj]
                 for a in residue.atoms():
@@ -389,7 +400,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                             nlist[index, n_index, 2] = embedding_dicts['nlist']['none']
                             n_index += 1
                         # a 0 -> non-bonded
-                        elif sum(bonds[:, index, j]) == 0:
+                        elif bonds[index, j] == 0:
                             #set index
                             nlist[index,n_index,1] = j
                             # set distance
@@ -397,8 +408,8 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                             #set type
                             nlist[index,n_index,2] = embedding_dicts['nlist']['nonbonded']
                             n_index += 1
-                        # value of 0 -> single bonded
-                        elif (bonds[:, index, j] != 0).argmax(0) == 0:
+                        # single bonded
+                        else:
                             #set index
                             nlist[index,n_index,1] = j
                             # set distance
@@ -407,7 +418,7 @@ def process_pdb(path, corr_path, chain_id, max_atoms,
                             nlist[index,n_index,2] = embedding_dicts['nlist'][1]
                             n_index += 1
                         if n_index == NEIGHBOR_NUMBER:
-                            break
+                            break                            
                     # how did we do on peaks
                     if False and (peaks[index] > 0 and peaks[index] < 25):
                         nonbonded_count =  np.sum(nlist[index, :, 2] == embedding_dicts['nlist']['nonbonded'])
@@ -467,8 +478,6 @@ with tf.python_io.TFRecordWriter('train-structure-protein-data-{}-{}.tfrecord'.f
         gsd.hoomd.open(name='protein_frags.gsd', mode='wb') as gsd_file,\
         open('record_info.txt', 'w') as rinfo:
         # add a bit in case we have some 1,3, or 1,4 neighbors that we don't want
-        # TODO: We have been discarding 1,3 and 1,4 (ignoring BOND_MAX)
-        # So I've reduced this accordingly (max valence = 4)
         NN = NEIGHBOR_NUMBER + 4
         nm = nlist_model(NN, sess)
         pbar = tqdm.tqdm(items)

@@ -81,7 +81,17 @@ def adj_to_nlist(atoms, A, nlist_model, embeddings):
     mol = m.GetMol()
     try:
         AllChem.EmbedMolecule(mol)
-    except ValueError as e:
+        # Not necessary according to current docs
+        '''
+        mol.UpdatePropertyCache(strict=False)
+        for i in range(1000):
+            r = AllChem.MMFFOptimizeMolecule(mol, maxIters=100)
+            if r == 0:
+                break
+            if r == -1:
+                raise ValueError()
+        '''
+    except (ValueError,RuntimeError) as e:
         print('Unable to process')
         print(Chem.MolToSmiles(mol))
         raise e
@@ -93,16 +103,13 @@ def adj_to_nlist(atoms, A, nlist_model, embeddings):
         pos_nlist = nlist_model(np_pos)
         nlist = np.zeros( (MAX_ATOM_NUMBER, NEIGHBOR_NUMBER, 3) )
 
-
+        
         # compute bond distances
-        # bonds contains 1 neighbors, 2 neighbors, etc where "1" means 1 bond away and "2" means two bonds away
-        bonds = np.zeros( (BOND_MAX, MAX_ATOM_NUMBER,MAX_ATOM_NUMBER), dtype=np.int64)
+        bonds = np.zeros( (MAX_ATOM_NUMBER,MAX_ATOM_NUMBER), dtype=np.int64)
         # need to rebuild adjacency matrix with new atom ordering
         for b in mol.GetBonds():
-            bonds[0, b.GetBeginAtomIdx(), b.GetEndAtomIdx()] = 1
-            bonds[0, b.GetEndAtomIdx(), b.GetBeginAtomIdx()] = 1
-        for bi in range(1, BOND_MAX):
-            bonds[bi, :, :] = (bonds[0, :, :] @ bonds[bi - 1, :, :]) > 0
+            bonds[b.GetBeginAtomIdx(), b.GetEndAtomIdx()] = 1
+            bonds[b.GetEndAtomIdx(), b.GetBeginAtomIdx()] = 1
 
         # a 0 -> non-bonded
         for index in range(N):
@@ -114,14 +121,11 @@ def adj_to_nlist(atoms, A, nlist_model, embeddings):
                 nlist[index, ni, 0] = pos_nlist[index, ni, 0] / 10
                 nlist[index, ni, 1] = j
                 # a 0 -> non-bonded
-                if sum(bonds[:, index, j]) == 0:
+                if bonds[index, ni] == 0:
                     nlist[index,ni,2] = embeddings['nlist']['nonbonded']
                 else:
-                    # add 1 so index 0 -> single bonded
                     # currently only single is used!
-                    bond_dist = (bonds[:, index, j] != 0).argmax(0) + 1
-                    if bond_dist == 1:
-                        nlist[index,ni,2] = embeddings['nlist'][bond_dist]
+                    nlist[index,ni,2] = embeddings['nlist'][1]
         # pad out the nlist
         for index in range(N, MAX_ATOM_NUMBER):
             for ni in range(NEIGHBOR_NUMBER):
@@ -130,7 +134,7 @@ def adj_to_nlist(atoms, A, nlist_model, embeddings):
                 nlist[index, ni, 2] = embeddings['nlist']['none']
         if False:
             # debugging
-            print(nlist)
+            print(nlist[:len(atoms)])
             a1, a2 = np.nonzero(A)
             for a1i, a2i in zip(a1, a2):
                 print(a1i, a2i)
@@ -175,7 +179,7 @@ with tf.python_io.TFRecordWriter('train-structure-metabolite-data-{}-{}.tfrecord
                     pbar.set_description('{}:{}. Successes: {}'.format(class_label,ci, successes))
                     record = make_tfrecord(atom_data, mask_data, nlist, peak_data, embeddings['class'][class_label], name_data)
                     writer.write(record.SerializeToString())
-            except ValueError:
+            except ValueError as e:
                 continue
             successes += 1
 # I like my embeddings rn, so won't overwrite

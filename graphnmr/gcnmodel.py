@@ -933,7 +933,7 @@ class StructGCNModel(GCNModel):
             self.peaks = tf.reduce_sum(peak_params * oh * self.peak_std + oh * self.peak_avg, axis=-1)
         else:
             self.raw_peaks =  tf.keras.layers.Flatten()(tf.keras.layers.Dense(1)(x))
-            self.peaks = raw_peaks * tf.nn.embedding_lookup(self.peak_std, features) + tf.nn.embedding_lookup(self.peak_avg, features)
+            self.peaks = self.raw_peaks * tf.nn.embedding_lookup(self.peak_std, features) + tf.nn.embedding_lookup(self.peak_avg, features)
 
 
         self.built = True
