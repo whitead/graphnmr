@@ -36,7 +36,7 @@ def train_model(name, hypers, filenames, learning_rates=None, restart=False, ski
         print(f'Found {c} in {f}')
     skips = [int(c * s) for c,s in zip(counts, skips)]
     hypers.NUM_BATCHES = counts[0] - skips[0]
-    print(f'Adjusting NUM_BATCHES to be {hypers.NUM_BATCHES}. Will use {skips[0]} for validation data')
+    print(f'Adjusting NUM_BATCHES to be {hypers.NUM_BATCHES}. Will use {skips} for validation data')
     model = StructGCNModel(SCRATCH + name, embedding_dicts, peak_standards, hypers)
     model.build_from_datasets(create_datasets(filenames, skips),
                               tf.constant([0], dtype=tf.int64), 20000,
@@ -50,7 +50,7 @@ def train_model(name, hypers, filenames, learning_rates=None, restart=False, ski
         for i, lr in enumerate(learning_rates[1:]):
             model.hypers.LEARNING_RATE = lr
             model.run_train(restart=True)
-    #model.summarize_eval()
+    model.summarize_eval()
 
 #1e-3 -> really big
 #1e-5 -> tuning
@@ -159,18 +159,39 @@ elif sys.argv[3] == 'standard-all':
 elif sys.argv[3] == 'standard-all-extend':
     hypers = GCNHypersStandard()
     hypers.NUM_EPOCHS = 50
-    train_model('struct-model-18/standard-all-extend', hypers, filenames[1:2], learning_rates=[1e-5], restart=True, preload='struct-model-18/standard-all')
+    train_model('struct-model-18/standard-all-extend', hypers, weighted_filenames[1:2], learning_rates=[1e-5], restart=True, preload='struct-model-18/standard-all')
+
+elif sys.argv[3] == 'standard-all2-extend':
+    hypers = GCNHypersStandard()
+    hypers.EMBEDDINGS_OUT = True
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-all2-extend', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], restart=True, preload='struct-model-18/standard-all2-refdb')
+
+elif sys.argv[3] == 'standard-all2-metabolite':
+    hypers = GCNHypersStandard()
+    hypers.EMBEDDINGS_OUT = True
+    hypers.NUM_EPOCHS = 50
+    hypers.STRATIFY = True
+    train_model('struct-model-18/standard-all2-metabolite', hypers, [filenames[1], metabolite[0]], learning_rates=[1e-4, 1e-5, 1e-5], restart=True, preload='struct-model-18/standard-all2-extend')
 
 
 
 elif sys.argv[3] == 'standard-all2':
     hypers = GCNHypersStandard()
     hypers.EMBEDDINGS_OUT = True
-    hypers = GCNHypersStandard()
     hypers.NUM_EPOCHS = 5
     train_model('struct-model-18/standard-all2', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5])
     hypers.NUM_EPOCHS = 50
     train_model('struct-model-18/standard-all2', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], restart=True)
+
+elif sys.argv[3] == 'standard-all2-md':
+    hypers = GCNHypersStandard()
+    hypers.EMBEDDINGS_OUT = True
+    hypers.ATOM_EMBEDDING_SIZE = 128
+    hypers.NUM_EPOCHS = 5
+    train_model('struct-model-18/standard-all2-md', hypers, filenames[0:1], learning_rates=[1e-3, 1e-3, 1e-4, 1e-5])
+    hypers.NUM_EPOCHS = 50
+    train_model('struct-model-18/standard-all2-md', hypers, filenames[1:2], learning_rates=[1e-4, 1e-5, 1e-5], restart=True)
 
 
 

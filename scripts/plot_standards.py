@@ -94,7 +94,29 @@ hypers = GCNHypersStandard()
 hypers.EMBEDDINGS_OUT = True
 plot_model(model_dir + '/standard-all2', hypers)
 
+hypers = GCNHypersStandard()
+hypers.EMBEDDINGS_OUT = True
+plot_model(model_dir + '/standard-all2-refdb', hypers)
+
+
+hypers = GCNHypersStandard()
+hypers.EMBEDDINGS_OUT = True
+plot_model(model_dir + '/standard-all2-extend', hypers)
+
 exit()
+
+hypers = GCNHypersStandard()
+hypers.EMBEDDINGS_OUT = True
+plot_model(model_dir + '/standard-all2-metabolite', hypers)
+
+
+
+hypers.EMBEDDINGS_OUT = True
+hypers.ATOM_EMBEDDING_SIZE = 128
+plot_model(model_dir + '/standard-all2-md', hypers)
+
+
+
 
 hypers = GCNHypersStandard()
 hypers.EDGE_RBF = True

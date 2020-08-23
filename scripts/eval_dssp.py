@@ -18,6 +18,19 @@ with open(os.path.join(DATA_DIR,'peak_standards.pb'), 'rb') as f:
 atom_number = MAX_ATOM_NUMBER
 neighbor_number = NEIGHBOR_NUMBER
 
+
+
+hypers = GCNHypersStandard()
+hypers.BATCH_SIZE = 1
+hypers.BATCH_NORM = False
+hypers.EMBEDDINGS_OUT = True
+model_name = 'nmrstruct-model-18/standard-all2-md'
+
+#hypers.EDGE_RBF = True
+#hypers.EDGE_EMBEDDING_SIZE = 128
+#hypers.EDGE_EMBEDDING_OUT = 8
+hypers.ATOM_EMBEDDING_SIZE = 128
+
 hypers = GCNHypersStandard()
 model_name = 'nmrstruct-model-18/standard-all'
 

@@ -76,17 +76,25 @@ class GCNModel:
     def build_from_datasets(self, datasets, dataset_choices=None, shuffle=10000, *args, **kw_args):
 
         print('Building from datasets {}. Will shuffle with buffer {}...'.format(datasets, shuffle), end='')
-        # datasets should be tuples with train, test
+        # datasets should be tuples with train, test        
         train_dataset = datasets[0][0]
         test_dataset = datasets[0][1]
+        
+        # add additional if  present
+        for d in datasets[1:]:
+            print('Combing multiple datasets')
+            train_dataset = train_dataset.concatenate(d[0])
+            test_dataset = test_dataset.concatenate(d[1])
 
 
         # make a train and test dataset, where test is size TEST_N and train is size BATCH_SIZE repeated indefinitely
         # This removes TEST_N data points for validation. Then we say repeat test data as many times as wanted
         if self.hypers.STRATIFY:
-            target_dist = [1 / len(self.embedding_dicts['clas']) for _ in self.embedding_dicts['class']]
+            target_dist = [1 / len(self.embedding_dicts['class']) for _ in self.embedding_dicts['class']]
             print('Will stratify dataset to', target_dist)
-            train_dataset = train_dataset.apply(tf.data.experimental.rejection_resample(lambda *x: tf.reshape(x[4], []), target_dist))
+            train_dataset = train_dataset.apply(tf.data.experimental.rejection_resample(lambda *x: tf.reshape(x[5], []), target_dist))
+            # drop extra class (added by rejection sample
+            train_dataset = train_dataset.map(lambda _, x: x)
 
         test_dataset = test_dataset.shuffle(shuffle // 4).batch(self.hypers.BATCH_SIZE)
         train_dataset = train_dataset.shuffle(shuffle).batch(self.hypers.BATCH_SIZE)
@@ -97,10 +105,7 @@ class GCNModel:
         self.test_init_op = iterator.make_initializer(test_dataset)
 
         # assume this order
-        if self.hypers.STRATIFY:
-            _, (bond_inputs, atom_inputs, peak_inputs, mask_inputs, name_inputs, class_input, record_index) = iterator.get_next()
-        else:
-            (bond_inputs, atom_inputs, peak_inputs, mask_inputs, name_inputs, class_input, record_index) = iterator.get_next()
+        (bond_inputs, atom_inputs, peak_inputs, mask_inputs, name_inputs, class_input, record_index) = iterator.get_next()
         self.raw_mask = mask_inputs # we will filter by atom type later
         self.peak_labels = tf.clip_by_value(tf.where(tf.is_nan(peak_inputs), tf.zeros_like(peak_inputs), peak_inputs), 0, self.hypers.PEAK_CLIP)
         self.class_label = class_input
@@ -174,8 +179,10 @@ class GCNModel:
         #reg_penalty = tf.cast(self.training, tf.float32) * tf.reduce_mean(self.hypers.REGULARIZER(self.nlist_grad))
 
         with tf.control_dependencies([update_op]):
-            # divide by clip to normalize
-            self.loss = self.hypers.LOSS_FUNCTION(labels=self.peak_labels, predictions=self.peaks, weights=self.mask) + reg_penalty
+            # we work in standardize labels for training
+            # those are output by raw_peaks
+            trans_labels = safe_div(self.peak_labels  - tf.nn.embedding_lookup(self.peak_avg, self.features), tf.nn.embedding_lookup(self.peak_std, self.features))
+            self.loss = self.hypers.LOSS_FUNCTION(labels=trans_labels, predictions=self.raw_peaks, weights=self.mask) + reg_penalty
             optimizer = tf.train.AdamOptimizer(self.hypers.LEARNING_RATE)
             #gvs =  optimizer.compute_gradients(self.loss)
             #gvs = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gvs if grad is not None]
@@ -906,11 +913,11 @@ class StructGCNModel(GCNModel):
                 x = tf.keras.layers.BatchNormalization(renorm=True)(x, training=self.training)
 
         # now expand to match range of peaks
-        peak_std = np.ones(len(self.embedding_dicts['atom']), dtype=np.float32)
-        peak_avg = np.zeros(len(self.embedding_dicts['atom']), dtype=np.float32)
+        self.peak_std = np.ones(len(self.embedding_dicts['atom']), dtype=np.float32)
+        self.peak_avg = np.zeros(len(self.embedding_dicts['atom']), dtype=np.float32)
         for k,v in self.peak_standards.items():
-            peak_std[k] = v[2]
-            peak_avg[k] = v[1]
+            self.peak_std[k] = v[2]
+            self.peak_avg[k] = v[1]
 
         # output as many feature possibilities as there are
         # then select
@@ -919,13 +926,14 @@ class StructGCNModel(GCNModel):
             peak_params = tf.keras.layers.Dense(dim_size, name='feature-dense-out')(x)
             # peak params in B x N x F
             oh = tf.one_hot(self.features, depth=dim_size)
+            self.raw_peaks = tf.reduce_sum(peak_params * oh, axis=-1)
             # one hot features in B x N x F
             # peak_std/avg are F
             # the one hot will remove all but one peak, then sum
-            self.peaks = tf.reduce_sum(peak_params * oh * peak_std + oh * peak_avg, axis=-1)
+            self.peaks = tf.reduce_sum(peak_params * oh * self.peak_std + oh * self.peak_avg, axis=-1)
         else:
-            raw_peaks =  tf.keras.layers.Flatten()(tf.keras.layers.Dense(1)(x))
-            self.peaks = raw_peaks * tf.nn.embedding_lookup(peak_std, features) + tf.nn.embedding_lookup(peak_avg, features)
+            self.raw_peaks =  tf.keras.layers.Flatten()(tf.keras.layers.Dense(1)(x))
+            self.peaks = raw_peaks * tf.nn.embedding_lookup(self.peak_std, features) + tf.nn.embedding_lookup(self.peak_avg, features)
 
 
         self.built = True

@@ -118,8 +118,10 @@ def adj_to_nlist(atoms, A, nlist_model, embeddings):
                     nlist[index,ni,2] = embeddings['nlist']['nonbonded']
                 else:
                     # add 1 so index 0 -> single bonded
+                    # currently only single is used!
                     bond_dist = (bonds[:, index, j] != 0).argmax(0) + 1
-                    nlist[index,ni,2] = embeddings['nlist'][bond_dist]
+                    if bond_dist == 1:
+                        nlist[index,ni,2] = embeddings['nlist'][bond_dist]
         # pad out the nlist
         for index in range(N, MAX_ATOM_NUMBER):
             for ni in range(NEIGHBOR_NUMBER):
@@ -147,7 +149,7 @@ with open(DATA_DIR + 'metabolite_data.pb', 'rb') as f:
 config = tf.ConfigProto(
         device_count = {'GPU': 0}
     )
-config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1
+#config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1
 with tf.python_io.TFRecordWriter('train-structure-metabolite-data-{}-{}.tfrecord'.format(MAX_ATOM_NUMBER, NEIGHBOR_NUMBER),
                                  options=tf.io.TFRecordCompressionType.GZIP) as writer:
     with tf.Session(config=config) as sess:
@@ -176,4 +178,5 @@ with tf.python_io.TFRecordWriter('train-structure-metabolite-data-{}-{}.tfrecord
             except ValueError:
                 continue
             successes += 1
-save_embeddings(embeddings, 'embeddings.pb')
+# I like my embeddings rn, so won't overwrite
+#save_embeddings(embeddings, 'embeddings.pb')
