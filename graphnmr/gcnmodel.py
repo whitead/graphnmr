@@ -375,6 +375,34 @@ class GCNModel:
                 print('')
         return result
 
+    def eval_small(self, feed_dict={}):
+        saver = tf.train.Saver()
+        result = []
+        with tf.Session() as sess:
+            self.load(sess)
+            if self.using_dataset:
+                sess.run(self.test_init_op)
+            # hope it's not repeated!
+            try:
+                print('Evaluating test data: ', end='')
+                N = 0
+                while True:
+                    result.append(sess.run(
+                        {
+                            'peaks': self.peaks,
+                            'class': self.class_label,
+                            'mask': self.mask,
+                            'peak_labels': self.peak_labels,
+                            'names': self.names,
+                            'record_index': self.record_index
+                        },
+                                  feed_dict=self._feed_dict(feed_dict, False)))
+                    N += 1
+                    print('\rEvaluating test data: {}'.format(N), end='')
+            except tf.errors.OutOfRangeError:
+                print('')
+        return result
+
     def time_peaks(self, feed_dict={}):
         import timeit
         saver = tf.train.Saver()
@@ -392,13 +420,12 @@ class GCNModel:
                     sess.run(
                             self.peaks,
                             feed_dict=self._feed_dict(feed_dict, False))
-                    N += 1
+                    N += self.hypers.BATCH_SIZE
             except tf.errors.OutOfRangeError:
                 elapsed = timeit.default_timer() - start_time
 
         print(f'Elapsed time: {elapsed}. Time per record {elapsed / N}. '
-              f'Time per peak {elapsed / N / self.hypers.BATCH_SIZE}')
-
+              f'Time per peak {elapsed / N / self.atom_number}')
 
     def to_networkx(self, number=16, feed_dict = {}):
         import networkx as nx
@@ -676,6 +703,7 @@ class GCNModel:
 
 class StructGCNModel(GCNModel):
     def build(self, features, nlist, atom_number, neighbor_size, predict_atom='H', add_gradients=True):
+        self.atom_number = atom_number
         print('Building with ')
         for k,v in self.hypers.__dict__.items():
             print('\t',k, ':', v)
