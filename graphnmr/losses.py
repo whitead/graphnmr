@@ -12,7 +12,7 @@ def corr_coeff(x, y, w = None):
     cor = cov / tf.math.sqrt((xm2 - xm**2) * (ym2 - ym**2))
     return cor
     
-def corr_loss(labels, predictions, weights, s=0.001):
+def corr_loss(labels, predictions, weights, s=0.01):
     '''
     Mostly correlation, with small squared diff
     '''

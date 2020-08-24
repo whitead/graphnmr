@@ -19,9 +19,7 @@ neighbor_number = NEIGHBOR_NUMBER
 
 hypers = GCNHypersStandard()
 hypers.BATCH_SIZE = 1
-hypers.BATCH_NORM = False
-hypers.EMBEDDINGS_OUT = True
-model_name = 'nmrstruct-model-18/standard-all2-extend'
+model_name = 'nmrstruct-model-19/standard-all2-metabolite'
 
 #hypers.EDGE_RBF = True
 #hypers.EDGE_EMBEDDING_SIZE = 128

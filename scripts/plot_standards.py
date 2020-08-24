@@ -26,15 +26,14 @@ neighbor_number = NEIGHBOR_NUMBER
 # read data from this file
 test_file = os.path.join(DATA_DIR,f'test/test-structure-shift-data-{atom_number}-{neighbor_number}.tfrecord')
 train_file = os.path.join(DATA_DIR,f'train-structure-protein-data-{atom_number}-{neighbor_number}.tfrecord')
-#valid_file = os.path.join(DATA_DIR,f'train-structure-shift-data-{atom_number}-{neighbor_number}-weighted.tfrecord')
-valid_file = train_file
+metabolite = os.path.join(DATA_DIR,f'train-structure-metabolite-data-{MAX_ATOM_NUMBER}-{NEIGHBOR_NUMBER}.tfrecord')
 
 
 
 skips = [6000]
 
 
-def plot_model(name, hypers, data='test', progressive=False, atom=None):
+def plot_model(name, hypers, data='test', progressive=False, atom=None, train_file=train_file, skips=skips):
     print('Results for model ', SCRATCH + name)
     plot_dir = ''
     tf.reset_default_graph()
@@ -55,7 +54,7 @@ def plot_model(name, hypers, data='test', progressive=False, atom=None):
             plot_dir = 'train'
             print('Evaluating train data')
         else:
-            f = valid_file
+            f = train_file
             plot_dir = 'validation'
             print('Evaluating validation data')
         model.build_from_datasets(create_datasets([f], skips, train),
@@ -88,119 +87,38 @@ def plot_model(name, hypers, data='test', progressive=False, atom=None):
              break
         
 
-model_dir = 'struct-model-18'
+model_dir = 'struct-model-19'
 
 hypers = GCNHypersStandard()
-hypers.EMBEDDINGS_OUT = True
-plot_model(model_dir + '/standard-all2', hypers)
-
-hypers = GCNHypersStandard()
-hypers.EMBEDDINGS_OUT = True
-plot_model(model_dir + '/standard-all2-refdb', hypers)
-
-
-hypers = GCNHypersStandard()
-hypers.EMBEDDINGS_OUT = True
-plot_model(model_dir + '/standard-all2-extend', hypers)
-
-exit()
-
-hypers = GCNHypersStandard()
-hypers.EMBEDDINGS_OUT = True
-plot_model(model_dir + '/standard-all2-metabolite', hypers)
-
-
-
-hypers.EMBEDDINGS_OUT = True
-hypers.ATOM_EMBEDDING_SIZE = 128
-plot_model(model_dir + '/standard-all2-md', hypers)
-
-
-
-
-hypers = GCNHypersStandard()
-hypers.EDGE_RBF = True
-hypers.EDGE_EMBEDDING_SIZE = 128
-#hypers.EDGE_EMBEDDING_OUT = 8
-#hypers.ATOM_EMBEDDING_SIZE = 128
-plot_model(model_dir + '/standard-uw-rbf', hypers, atom='H')
-plot_model(model_dir + '/standard-w-rbf', hypers)
-
-
-
-hypers = GCNHypersStandard()
-hypers.EDGE_RBF = True
-hypers.EDGE_EMBEDDING_SIZE = 128
-hypers.EDGE_EMBEDDING_OUT = 8
-hypers.ATOM_EMBEDDING_SIZE = 64
-plot_model(model_dir + '/standard-uw-rbf-ef', hypers, atom='H')
-
-
-hypers = GCNHypersStandard()
-hypers.EDGE_RBF = True
-hypers.EDGE_EMBEDDING_SIZE = 128
-plot_model(model_dir + '/standard-uw-rbf-all', hypers)
-
-
-exit()
-
-
-hypers = GCNHypersStandard()
-plot_model(model_dir + '/standard-all', hypers)
-
-hypers = GCNHypersStandard()
-plot_model(model_dir + '/standard-w', hypers, atom='H')
-
-hypers = GCNHypersStandard()
-plot_model(model_dir + '/standard-uw', hypers, atom='H')
-
-
-hypers = GCNHypersStandard()
-plot_model(model_dir + '/standard', hypers, atom='H')
-
-hypers = GCNHypersStandard()
-plot_model(model_dir + '/standard-refdb-long', hypers, atom='H')
-
-hypers = GCNHypersStandard()
-plot_model(model_dir + '/refdb-only', hypers, atom='H')
-
-hypers = GCNHypersStandard()
-plot_model(model_dir + '/standard-uwc', hypers, atom='H')
-
-
-
-hypers = GCNHypersStandard()
-hypers.NON_LINEAR = False
-plot_model(model_dir + '/linear', hypers, atom='H')
+plot_model(model_dir + '/refdb', hypers)
+plot_model(model_dir + '/standard', hypers)
+plot_model(model_dir + '/standard-norefdb', hypers)
+plot_model(model_dir + '/standard-metabolite', hypers)
+plot_model(model_dir + '/standard-metabolite', hypers, data='valid', train_file=metabolite, skips=[74])
 
 hypers = GCNHypersStandard()
 hypers.EDGE_DISTANCE = False
-plot_model(model_dir + '/nodist', hypers , atom = 'H')
+plot_model(model_dir + '/nodist', hypers)
 
 hypers = GCNHypersStandard()
 hypers.EDGE_NONBONDED = False
-plot_model(model_dir + '/noneighs', hypers, atom='H')
+plot_model(model_dir + '/noneighs', hypers)
 
 hypers = GCNHypersSmall()
-plot_model(model_dir + '/standard-sm', hypers, atom='H')
+plot_model(model_dir + '/standard-sm', hypers)
 
 hypers = GCNHypersMedium()
-plot_model(model_dir + '/standard-md', hypers, atom='H')
+plot_model(model_dir + '/standard-md', hypers)
 
 hypers = GCNHypersTiny()
-#plot_model(model_dir + '/standard-tn', hypers, atom='H')
+plot_model(model_dir + '/standard-tn', hypers)
 
 hypers = GCNHypersStandard()
-hypers.RESIDUE = False
-#plot_model(model_dir + '/noresidue', hypers, atom='H')
+for i in range(10):
+    plot_model(model_dir + f'/curve-shift-{i}', hypers)
 
+for i in range(10):
+    plot_model(model_dir + f'/curve-refdb-{i}', hypers)
 
-hypers = GCNHypersStandard()
-for i in range(20):
-    plot_model(model_dir + f'/curve-shift-{i}', hypers, atom='H')
-
-for i in range(20):
-    plot_model(model_dir + f'/curve-refdb-{i}', hypers, atom='H')
-
-for i in range(20):
-    plot_model(model_dir + f'/curve-shift-noload-{i}', hypers, atom='H')
+for i in range(10):
+    plot_model(model_dir + f'/curve-shift-noload-{i}', hypers)

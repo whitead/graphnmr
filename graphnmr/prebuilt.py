@@ -18,6 +18,7 @@ class GCNHypersStandard(GCNHypers):
         self.BATCH_NORM = False
         self.EDGE_FC_LAYERS = 3
         self.EDGE_EMBEDDING_SIZE = 32
+        self.EMBEDDINGS_OUT = True
         
 
 class GCNHypersMedium(GCNHypersStandard):

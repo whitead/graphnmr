@@ -792,6 +792,7 @@ class StructGCNModel(GCNModel):
             # distances is now B x (AN * NN)
             if not self.hypers.EDGE_DISTANCE:
                 distances = tf.zeros_like(input_distances)
+                distances = tf.tile(distances[:,:,tf.newaxis], [1, 1, self.hypers.EDGE_EMBEDDING_SIZE - 1])
             elif self.hypers.EDGE_RBF:
                 rbf_expander = RBFExpansion(1.5,8, self.hypers.EDGE_EMBEDDING_SIZE - 1)
                 distances = rbf_expander(input_distances)
