@@ -10,7 +10,6 @@ MAX_ATOM_NUMBER = 256
 #MAX_ATOM_NUMBER = 32
 #NEIGHBOR_NUMBER = 8
 NEIGHBOR_NUMBER = 16
-BOND_MAX = 3
 
 def load_records(filename, batch_size=1):
     data = tf.data.TFRecordDataset(filename, compression_type='GZIP').map(data_parse)
@@ -211,7 +210,7 @@ def load_embeddings(path):
         aas = [s.upper() for s in aas]
         embedding_dicts['class'] = dict(zip(aas, range(len(aas))))
     if 'nlist' not in embedding_dicts:
-        nlist = ['none', 'nonbonded'] + list(range(1, BOND_MAX + 1))
+        nlist = ['none', 'nonbonded'] + list(1)
         embedding_dicts['nlist'] = dict(zip(nlist, range(len(nlist))))
     if 'name' not in embedding_dicts:
         embedding_dicts['name'] = {'X': 0}
