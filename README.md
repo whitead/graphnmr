@@ -1,7 +1,9 @@
 # Graph NMR
 
 A graph convolutional neural network for predicting NMR chemical shifts in
-molecules.
+molecules. This is the implementation for "Predicting Chemical Shifts with Graph Neural Networks" Z Yang, M Chakraborty, AD White [10.1101/2020.08.26.267971](https://doi.org/10.1101/2020.08.26.267971).
+
+**This code requires all molecules to be pre-processed into 256 atom fragments. We will be releasing a general use version soon that removes this restriction.**
 
 ## Layout
 
@@ -19,7 +21,7 @@ molecules.
 
 ## Data
 
-The raw data is not in this repo due to the huge number of files.
+The raw data is not in this repo due to the huge number of files. The processed records contain the parsed data.
 
 ## Preequisites
 
